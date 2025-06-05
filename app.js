@@ -7,9 +7,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const connectDB = require('./db/db');
+const setupSwaggerDocs = require('./swagger');
+
+// Import routes
+const authRoutes = require('./routers/auth_routes/auth_routes');
 
 // Connect to MongoDB
-// connectDB()
+connectDB();
 
 app.use(express.json());
 
@@ -17,9 +21,11 @@ app.get('/', (req, res) => {
   res.send('Hello, world!');
 });
 
-app.get('/api/hello', (req, res) => {
-  res.json({ message: 'Hello from the API!' });
-});
+// Use routes
+app.use('/api/v1/auth', authRoutes);
+
+// Swagger
+setupSwaggerDocs(app);
 
 // Start server
 app.listen(PORT, () => {
