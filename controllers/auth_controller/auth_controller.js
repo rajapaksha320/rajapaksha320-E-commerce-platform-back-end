@@ -4,19 +4,61 @@ const User = require('../../models/auth_model/User');
 // const sendEmail = require('../utils/sendEmail');
 
 exports.signup = async (req, res) => {
-    const { email, password, tenantId } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 12);
+    try {
+        console.log(req.body);
 
-    const existingUser = await User.findOne({ email, tenantId });
-    if (existingUser) {
-        return res.status(409).json({ message: 'User already exists' });
-    }
-    const user = await User.create({ email, password: hashedPassword, tenantId });
-    if (!user) {
-        return res.status(500).json({ message: 'User creation failed' });
-    }
+        const {
+            email,
+            password,
+            confirmPassword,
+            tenantId,
+            firstName,
+            lastName,
+            agreeTerms,
+            userRole,
+            emailVerified = false, // Default to false if not provided
+        } = req.body;
 
-    res.status(201).json({ message: 'User created Successfull' });
+        if (!email || !password || !confirmPassword || !firstName || !lastName || !tenantId || !userRole) {
+            return res.status(400).json({ message: 'All required fields must be provided and terms agreed.' });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: 'Passwords do not match.' });
+        }
+
+        const existingUser = await User.findOne({ email, tenantId });
+
+        if (existingUser) {
+            return res.status(409).json({ message: 'User already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        const user = await User.create({
+            email,
+            password: hashedPassword,
+            tenantId,
+            firstName,
+            lastName,
+            agreeTerms,
+            emailVerified,
+            userRole,
+        });
+
+        if (!user) {
+            return res.status(500).json({ message: 'User creation failed' });
+        }
+
+        res.status(201).json({
+            message: 'User created successfully',
+            success: true,
+        });
+
+    } catch (error) {
+        console.error('Signup Error:', error);
+        res.status(500).json({ message: 'Server error during signup' });
+    }
 };
 
 exports.login = async (req, res) => {
