@@ -73,7 +73,7 @@ exports.login = async (req, res) => {
         return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user._id, tenantId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id, tenantId , role:user.userRole}, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     if (!token) {
         return res.status(500).json({ message: 'Token generation failed' });
