@@ -11,6 +11,7 @@ const setupSwaggerDocs = require('./swagger');
 
 // Import routes
 const authRoutes = require('./routers/auth_routes/auth_routes');
+const storeRoutes = require('./routers/store_route/store_route');
 
 // Connect to MongoDB
 connectDB();
@@ -23,6 +24,7 @@ app.get('/', (req, res) => {
 
 // Use routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/store',storeRoutes);
 
 // Swagger
 setupSwaggerDocs(app);
