@@ -87,4 +87,69 @@ const authMiddleware = require('../../middlewares/auth_middleware/authMiddleware
  */
 router.post('/create',authMiddleware, storeController.createStoreController);
 
+// get one store details
+/**
+ * @swagger
+ * /api/store/get-one:
+ *   post:
+ *     summary: Get a store by its ID
+ *     tags:
+ *       - Store
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - storeId
+ *             properties:
+ *               storeId:
+ *                 type: string
+ *                 example: "60f7a5e6f72e4b3a9c654321"
+ *     responses:
+ *       201:
+ *         description: Store fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Store fetched successfully
+ *       404:
+ *         description: Store not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Store Not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Server error
+ */
+router.get('/:storeId', storeController.getOneStoreController);
+
+
+// filter shops using shop category 
+router.get('/filter-shops/:categoryId',storeController.filterShopsUsingCtaegory)
+
+
 module.exports = router;
