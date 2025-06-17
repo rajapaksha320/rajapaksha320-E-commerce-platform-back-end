@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../../controllers/auth_controller/auth_controller');
+const authMiddleware = require('../../middlewares/auth_middleware/authMiddleware');
 
 /**
  * @swagger
@@ -133,6 +134,16 @@ router.post('/forgot-password', authController.forgotPassword);
  */
 router.post('/reset-password', authController.resetPassword);
 
+
+// update businessInfo info
+router.post('/update-business-info',authMiddleware, authController.updateBusinessInfoController);
+
+
+// update contact info
+router.post('/update-contact-info', authMiddleware, authController.updateContactInfoController);
+
+// update wish list
+router.post('/update-wish-list', authMiddleware, authController.updateWishListController);
 
 module.exports = router;
 
