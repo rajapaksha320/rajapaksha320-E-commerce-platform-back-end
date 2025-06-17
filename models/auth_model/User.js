@@ -39,9 +39,70 @@ const userSchema = new mongoose.Schema({
   },
   userRole: {
     type: String,
-    enum: ['buyer', 'admin' , 'seller'],
+    enum: ['buyer', 'admin', 'seller'],
     default: 'buyer',
   },
+
+  businessInfo: {
+    website: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    taxIdOrEIN: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    businessType: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    businessName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+  },
+
+  contactInfo: {
+    streetAddress: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    city: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    state: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    zipCode: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    country: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    phoneNumber: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+  },
+
+  userWishlist: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+  }],
 
 }, {
   timestamps: true,
