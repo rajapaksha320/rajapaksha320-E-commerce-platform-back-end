@@ -135,6 +135,9 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
 
+// verify OTP
+router.post('/verify-otp', authController.verifyOtpController);
+
 // update businessInfo info
 router.post('/update-business-info',authMiddleware, authController.updateBusinessInfoController);
 
