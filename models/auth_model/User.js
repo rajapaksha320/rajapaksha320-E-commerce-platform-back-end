@@ -31,8 +31,24 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: false,
   },
+
   resetToken: String,
-  resetTokenExpire: Date,
+
+
+  resetTokenExpiry: {
+    type: Date,
+  },
+
+  otp: {
+    type: String, 
+    default: null,
+  },
+
+  otpExpires: {
+    type: Date,
+    default: null, 
+  },
+
   emailVerified: {
     type: Boolean,
     default: false,
@@ -99,10 +115,13 @@ const userSchema = new mongoose.Schema({
     },
   },
 
+
   userWishlist: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Store',
   }],
+
+
 
 }, {
   timestamps: true,

@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../../models/auth_model/User');
-// const sendEmail = require('../utils/sendEmail');
+const sendEmail = require('../../utils/nodemailer');
 
 exports.signup = async (req, res) => {
     try {
@@ -73,13 +73,12 @@ exports.login = async (req, res) => {
         return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user._id, tenantId, role: user.userRole }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id, tenantId, role: user.userRole }, process.env.JWT_SECRET, { expiresIn: '5d' });
 
     if (!token) {
         return res.status(500).json({ message: 'Token generation failed' });
     }
     res.status(200).json({ message: 'Login successful', jwt_token: token });
-
 };
 
 exports.forgotPassword = async (req, res) => {
@@ -89,39 +88,97 @@ exports.forgotPassword = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const token = Math.random().toString(36).substr(2);
-    user.resetToken = token;
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otpExpires = Date.now() + 5 * 60 * 1000;
 
-    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
+    user.otp = otp;
+    user.otpExpires = otpExpires;
     await user.save();
 
-    // await sendEmail(email, 'Password Reset', `Use this token: ${token}`);
+    await sendEmail(email, 'Password Reset', `Use this token: ${otp} to reset your password. It expires in 5 minutes.`);
     res.json({ message: 'Reset email sent , check your inbox' });
 };
 
-exports.resetPassword = async (req, res) => {
-    const { email, tenantId, token, newPassword } = req.body;
 
-    const user = await User.findOne({
-        email,
-        tenantId,
-        resetToken: token,
-        resetTokenExpiry: { $gt: Date.now() },
-    });
+exports.verifyOtpController = async (req, res) => {
+    const { email, tenantId, otp } = req.body;
 
-    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
-
-    user.password = await bcrypt.hash(newPassword, 12);
-    if (!user.password) {
-        return res.status(500).json({ message: 'Password reset failed' });
+    if (!email || !tenantId || !otp) {
+        return res.status(400).json({
+            success: false,
+            message: "All fields are required.",
+        });
     }
-    user.resetToken = undefined;
-    user.resetTokenExpiry = undefined;
 
+    const user = await User.findOne({ email, tenantId });
+
+    if (!user || !user.otp || !user.otpExpires) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid or expired OTP.",
+        });
+    }
+
+    if (user.otpExpires < Date.now()) {
+        return res.status(400).json({
+            success: false,
+            message: "OTP has expired. Please request a new one.",
+        });
+    }
+
+    if (user.otp !== otp) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid OTP.",
+        });
+    }
+
+    user.otp = undefined;
+    user.otpExpires = undefined;
     await user.save();
 
-    res.json({ message: 'Password reset successful' });
+    return res.status(200).json({
+        success: true,
+        message: "OTP verified successfully.",
+        userId: user._id,
+    });
+}
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        const user = await User.findOne({ email });
+
+        if (user) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+
+            user.password = hashedPassword;
+            await user.save();
+
+            res.status(200).send({
+                success: true,
+                message: "Password changed successfully",
+                user: { email: user.email, username: user.username },
+            });
+
+        } else {
+            res.status(200).send({
+                success: false,
+                message: "User not found",
+            });
+        }
+    } catch (error) {
+        console.error("Error in ResetPasswordController:", error);
+        res.status(500).send({
+            success: false,
+            message: "An error occurred while resetting the password.",
+            error: error.message,
+        });
+    }
 };
+
 
 exports.updateBusinessInfoController = async (req, res) => {
     try {
