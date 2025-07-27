@@ -14,26 +14,32 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: false,
   },
   firstName: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
   },
   lastName: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
   },
   agreeTerms: {
     type: Boolean,
-    required: true,
+    required: false,
     default: false,
   },
 
   resetToken: String,
 
+  accessToken: {
+    type: String,
+  },
+  refreshToken: {
+    type: String,
+  },
 
   resetTokenExpiry: {
     type: Date,
