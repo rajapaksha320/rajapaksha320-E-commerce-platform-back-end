@@ -98,7 +98,7 @@ router.post('/login', authController.login);
  *       404:
  *         description: User not found
  */
-router.post('/forgot-password', authController.forgotPassword);
+router.post('/forgot-password', authMiddleware, authController.forgotPassword);
 
 /**
  * @swagger
@@ -132,14 +132,14 @@ router.post('/forgot-password', authController.forgotPassword);
  *       400:
  *         description: Invalid or expired token
  */
-router.post('/reset-password', authController.resetPassword);
+router.post('/reset-password', authMiddleware, authController.resetPassword);
 
 
 // verify OTP
-router.post('/verify-otp', authController.verifyOtpController);
+router.post('/verify-otp', authMiddleware, authController.verifyOtpController);
 
 // update businessInfo info
-router.post('/update-business-info',authMiddleware, authController.updateBusinessInfoController);
+router.post('/update-business-info', authMiddleware, authController.updateBusinessInfoController);
 
 
 // update contact info
@@ -147,6 +147,13 @@ router.post('/update-contact-info', authMiddleware, authController.updateContact
 
 // update wish list
 router.post('/update-wish-list', authMiddleware, authController.updateWishListController);
+
+
+// update user profile
+router.post('/refresh-token', authMiddleware, authController.refreshTokenController);
+
+// update personal info
+router.post('/seller-registration', authController.sellerRegistrationController);
 
 module.exports = router;
 
