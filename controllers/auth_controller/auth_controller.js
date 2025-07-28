@@ -351,17 +351,25 @@ exports.refreshTokenController = async (req, res) => {
 
 
 exports.sellerRegistrationController = async (req, res) => {
-    const { firstName, lastName , email, businessInfo, contactInfo } = req.body;
-
-    if (!businessInfo || !contactInfo) {
-        return res.status(400).json({ message: 'Business info and contact info are required' });
-    }
-
-    const tenantId = Math.random().toString(36).substring(2, 15);
-
     try {
-        
-        const user = await User.create({
+        const { firstName, lastName, email, businessInfo, contactInfo } = req.body;
+
+        // 1. Validate required fields
+        if (!firstName || !lastName || !email || !businessInfo || !contactInfo) {
+            return res.status(400).json({ message: 'All required fields must be provided' });
+        }
+
+        // 2. Check for existing user
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Email already registered' });
+        }
+
+        // 3. Generate a tenantId
+        const tenantId = Math.random().toString(36).substring(2, 15);
+
+        // 4. Create a new user
+        const user = new User({
             tenantId,
             firstName,
             lastName,
@@ -369,40 +377,59 @@ exports.sellerRegistrationController = async (req, res) => {
             userRole: 'seller',
             businessInfo,
             contactInfo,
-        })
+        });
 
-        const accessToken = jwt.sign(
-            { userId: user._id, tenantId, role: user.userRole },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '5d' }
-        );
-
-        if (!accessToken) {
-            return res.status(500).json({ message: 'Token generation failed' });
+        // 5. Generate Access Token
+        let accessToken;
+        try {
+            accessToken = jwt.sign(
+                { userId: user._id, tenantId, role: user.userRole },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '5d' }
+            );
+        } catch (err) {
+            console.error('Access token generation error:', err);
+            return res.status(500).json({ message: 'Failed to generate access token' });
         }
 
+        // 6. Generate Refresh Token
+        let refreshToken;
+        try {
+            const refreshSecretKey = process.env.REFRESH_SECRET_KEY || "refresh-secret-key";
+            refreshToken = jwt.sign(
+                { userId: user._id, tenantId, role: user.userRole },
+                refreshSecretKey,
+                { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
+            );
+        } catch (err) {
+            console.error('Refresh token generation error:', err);
+            return res.status(500).json({ message: 'Failed to generate refresh token' });
+        }
+
+        // 7. Save tokens
         user.accessToken = accessToken;
-
-        const refreshSecretKey =
-            process.env.REFRESH_SECRET_KEY || "refresh-secret-key";
-
-        const refreshToken = jwt.sign(
-            { userId: user._id, tenantId, role: user.userRole },
-            refreshSecretKey,
-            { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
-        );
-        if (!refreshToken) {
-            return res.status(500).json({ message: 'Refresh token generation failed' });
-        }
-
         user.refreshToken = refreshToken;
 
         await user.save();
 
-        res.status(200).json({ message: 'Seller registration successful', user , accessToken, refreshToken });
+        return res.status(201).json({
+            message: 'Seller registration successful',
+            user,
+            accessToken,
+            refreshToken
+        });
 
     } catch (error) {
         console.error('Seller Registration Error:', error);
-        res.status(500).json({ message: 'Server error during seller registration' });
+
+        // Handle specific MongoDB errors
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Invalid data provided', details: error.errors });
+        }
+        if (error.code === 11000) { // Mongo duplicate key error
+            return res.status(409).json({ message: 'Email already exists' });
+        }
+
+        return res.status(500).json({ message: 'Server error during seller registration' });
     }
-}
+};
