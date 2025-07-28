@@ -7,7 +7,7 @@ exports.signup = async (req, res) => {
     try {
         console.log(req.body);
         const tenantId = Math.random().toString(36).substring(2, 15);
-        const userRole = 'user'; // Default user role
+        const userRole = 'buyer'; // Default user role
 
         const {
             email,
