@@ -7,7 +7,7 @@ exports.signup = async (req, res) => {
     try {
         console.log(req.body);
         const tenantId = Math.random().toString(36).substring(2, 15);
-        const userRole = 'user'; // Default user role
+        const userRole = 'buyer';
 
         const {
             email,
@@ -16,7 +16,7 @@ exports.signup = async (req, res) => {
             firstName,
             lastName,
             agreeTerms,
-            emailVerified = false, // Default to false if not provided
+            emailVerified = false,
         } = req.body;
 
         if (!email || !password || !confirmPassword || !firstName || !lastName || !tenantId) {
@@ -354,21 +354,17 @@ exports.sellerRegistrationController = async (req, res) => {
     try {
         const { firstName, lastName, email, businessInfo, contactInfo } = req.body;
 
-        // 1. Validate required fields
         if (!firstName || !lastName || !email || !businessInfo || !contactInfo) {
             return res.status(400).json({ message: 'All required fields must be provided' });
         }
 
-        // 2. Check for existing user
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(409).json({ message: 'Email already registered' });
         }
 
-        // 3. Generate a tenantId
         const tenantId = Math.random().toString(36).substring(2, 15);
 
-        // 4. Create a new user
         const user = new User({
             tenantId,
             firstName,
@@ -379,7 +375,6 @@ exports.sellerRegistrationController = async (req, res) => {
             contactInfo,
         });
 
-        // 5. Generate Access Token
         let accessToken;
         try {
             accessToken = jwt.sign(
@@ -392,7 +387,6 @@ exports.sellerRegistrationController = async (req, res) => {
             return res.status(500).json({ message: 'Failed to generate access token' });
         }
 
-        // 6. Generate Refresh Token
         let refreshToken;
         try {
             const refreshSecretKey = process.env.REFRESH_SECRET_KEY || "refresh-secret-key";
@@ -406,7 +400,6 @@ exports.sellerRegistrationController = async (req, res) => {
             return res.status(500).json({ message: 'Failed to generate refresh token' });
         }
 
-        // 7. Save tokens
         user.accessToken = accessToken;
         user.refreshToken = refreshToken;
 
@@ -422,11 +415,10 @@ exports.sellerRegistrationController = async (req, res) => {
     } catch (error) {
         console.error('Seller Registration Error:', error);
 
-        // Handle specific MongoDB errors
         if (error.name === 'ValidationError') {
             return res.status(400).json({ message: 'Invalid data provided', details: error.errors });
         }
-        if (error.code === 11000) { // Mongo duplicate key error
+        if (error.code === 11000) {
             return res.status(409).json({ message: 'Email already exists' });
         }
 
