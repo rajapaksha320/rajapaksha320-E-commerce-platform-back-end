@@ -98,7 +98,7 @@ router.post('/login', authController.login);
  *       404:
  *         description: User not found
  */
-router.post('/forgot-password', authMiddleware, authController.forgotPassword);
+router.post('/forgot-password', authController.forgotPassword);
 
 /**
  * @swagger
@@ -132,11 +132,11 @@ router.post('/forgot-password', authMiddleware, authController.forgotPassword);
  *       400:
  *         description: Invalid or expired token
  */
-router.post('/reset-password', authMiddleware, authController.resetPassword);
+router.post('/reset-password', authController.resetPassword);
 
 
 // verify OTP
-router.post('/verify-otp', authMiddleware, authController.verifyOtpController);
+router.post('/verify-otp', authController.verifyOtpController);
 
 // update businessInfo info
 router.post('/update-business-info', authMiddleware, authController.updateBusinessInfoController);

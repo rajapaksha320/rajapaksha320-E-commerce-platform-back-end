@@ -5,7 +5,6 @@ const sendEmail = require('../../utils/nodemailer');
 
 exports.signup = async (req, res) => {
     try {
-        console.log(req.body);
         const tenantId = Math.random().toString(36).substring(2, 15);
         const userRole = 'buyer';
 
@@ -19,18 +18,35 @@ exports.signup = async (req, res) => {
             emailVerified = false,
         } = req.body;
 
-        if (!email || !password || !confirmPassword || !firstName || !lastName || !tenantId) {
-            return res.status(400).json({ message: 'All required fields must be provided and terms agreed.' });
+        // Basic validation
+        if (!email || !password || !confirmPassword || !firstName || !lastName) {
+            return res.status(400).json({
+                success: false,
+                message: 'All fields are required.',
+            });
+        }
+
+        if (!agreeTerms) {
+            return res.status(400).json({
+                success: false,
+                message: 'You must agree to the terms and conditions.',
+            });
         }
 
         if (password !== confirmPassword) {
-            return res.status(400).json({ message: 'Passwords do not match.' });
+            return res.status(400).json({
+                success: false,
+                message: 'Passwords do not match.',
+            });
         }
 
-        const existingUser = await User.findOne({ email, tenantId });
+        const existingUser = await User.findOne({ email });
 
         if (existingUser) {
-            return res.status(409).json({ message: 'User already exists' });
+            return res.status(409).json({
+                success: false,
+                message: 'User with this email already exists.',
+            });
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
@@ -47,17 +63,35 @@ exports.signup = async (req, res) => {
         });
 
         if (!user) {
-            return res.status(500).json({ message: 'User creation failed' });
+            return res.status(500).json({
+                success: false,
+                message: 'User could not be created.',
+            });
         }
 
         res.status(201).json({
-            message: 'User created successfully',
             success: true,
+            message: 'User registered successfully.',
+            userId: user._id,
+            tenantId: user.tenantId,
         });
 
     } catch (error) {
         console.error('Signup Error:', error);
-        res.status(500).json({ message: 'Server error during signup' });
+
+        // Specific handling for Mongoose validation errors
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed.',
+                errors: error.errors,
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error.',
+        });
     }
 };
 
@@ -101,9 +135,9 @@ exports.login = async (req, res) => {
 };
 
 exports.forgotPassword = async (req, res) => {
-    const { email, tenantId } = req.body;
+    const { email } = req.body;
 
-    const user = await User.findOne({ email, tenantId });
+    const user = await User.findOne({ email });
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -120,16 +154,16 @@ exports.forgotPassword = async (req, res) => {
 
 
 exports.verifyOtpController = async (req, res) => {
-    const { email, tenantId, otp } = req.body;
+    const { email, otp } = req.body;
 
-    if (!email || !tenantId || !otp) {
+    if (!email || !otp) {
         return res.status(400).json({
             success: false,
             message: "All fields are required.",
         });
     }
 
-    const user = await User.findOne({ email, tenantId });
+    const user = await User.findOne({ email });
 
     if (!user || !user.otp || !user.otpExpires) {
         return res.status(400).json({
@@ -165,7 +199,15 @@ exports.verifyOtpController = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
     try {
-        const { email, newPassword } = req.body;
+        const { email, newPassword , confirmPassword } = req.body;
+
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).send({
+                success: false,
+                message: "New password and confirm password do not match.", 
+            });
+        }
 
         const user = await User.findOne({ email });
 
@@ -352,10 +394,14 @@ exports.refreshTokenController = async (req, res) => {
 
 exports.sellerRegistrationController = async (req, res) => {
     try {
-        const { firstName, lastName, email, businessInfo, contactInfo } = req.body;
+        const { firstName, lastName, email, businessInfo, contactInfo , password , confirmPassword } = req.body;
 
-        if (!firstName || !lastName || !email || !businessInfo || !contactInfo) {
+        if (!firstName || !lastName || !email || !businessInfo || !contactInfo || !password || !confirmPassword) {
             return res.status(400).json({ message: 'All required fields must be provided' });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: 'Passwords do not match' });
         }
 
         const existingUser = await User.findOne({ email });
@@ -365,8 +411,11 @@ exports.sellerRegistrationController = async (req, res) => {
 
         const tenantId = Math.random().toString(36).substring(2, 15);
 
+        const hashedPassword = await bcrypt.hash(password, 12);
+
         const user = new User({
             tenantId,
+            password: hashedPassword,
             firstName,
             lastName,
             email,
