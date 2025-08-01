@@ -352,13 +352,11 @@ exports.updateWishListController = async (req, res) => {
 
 
 exports.refreshTokenController = async (req, res) => {
-    const { refreshToken, tenantId } = req.body;
+    const { refreshToken } = req.body;
 
     console.log('Refresh Token Request:', req.body);
-    console.log(tenantId);
-
-    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.trim() === '' || !tenantId) {
-        return res.status(400).json({ message: 'Refresh token and tenant ID are required' });
+    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.trim() === '') {
+        return res.status(400).json({ message: 'Refresh token is required' });
     }
 
     try {
@@ -372,13 +370,13 @@ exports.refreshTokenController = async (req, res) => {
 
         // Get user from DB
         const user = await User.findById(decoded.userId);
-        if (!user || user.tenantId !== tenantId) {
+        if (!user || user.tenantId !== decoded.tenantId) {
             return res.status(401).json({ message: 'Invalid refresh token - tenant mismatch or user not found' });
         }
 
         // Generate new access token
         const newAccessToken = jwt.sign(
-            { userId: user._id, tenantId, role: user.userRole },
+            { userId: user._id, tenantId: user.tenantId, role: user.userRole },
             process.env.JWT_SECRET,
             { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '5d' }
         );

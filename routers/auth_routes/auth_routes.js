@@ -150,7 +150,7 @@ router.post('/update-wish-list', authMiddleware, authController.updateWishListCo
 
 
 // update user profile
-router.post('/refresh-token', authMiddleware, authController.refreshTokenController);
+router.post('/refresh-token', authController.refreshTokenController);
 
 // update personal info
 router.post('/seller-registration', authController.sellerRegistrationController);
