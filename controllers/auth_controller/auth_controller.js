@@ -131,7 +131,7 @@ exports.login = async (req, res) => {
     if (!accessToken) {
         return res.status(500).json({ message: 'Token generation failed' });
     }
-    res.status(200).json({ message: 'Login successful', access_token: accessToken, refresh_token: refreshToken, userId: user._id, tenantId, userRole: user.userRole, emailVerified: user.emailVerified });
+    res.status(200).json({ message: 'Login successful', profile:user, access_token: accessToken, refresh_token: refreshToken, userId: user._id, tenantId, userRole: user.userRole, emailVerified: user.emailVerified });
 };
 
 exports.forgotPassword = async (req, res) => {
