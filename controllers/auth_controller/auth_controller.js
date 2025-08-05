@@ -131,7 +131,7 @@ exports.login = async (req, res) => {
     if (!accessToken) {
         return res.status(500).json({ message: 'Token generation failed' });
     }
-    res.status(200).json({ message: 'Login successful', access_token: accessToken, refresh_token: refreshToken, userId: user._id, tenantId, userRole: user.userRole, emailVerified: user.emailVerified });
+    res.status(200).json({ message: 'Login successful', profile:user, access_token: accessToken, refresh_token: refreshToken, userId: user._id, tenantId, userRole: user.userRole, emailVerified: user.emailVerified });
 };
 
 exports.forgotPassword = async (req, res) => {
@@ -199,13 +199,13 @@ exports.verifyOtpController = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
     try {
-        const { email, newPassword , confirmPassword } = req.body;
+        const { email, newPassword, confirmPassword } = req.body;
 
 
         if (newPassword !== confirmPassword) {
             return res.status(400).send({
                 success: false,
-                message: "New password and confirm password do not match.", 
+                message: "New password and confirm password do not match.",
             });
         }
 
@@ -355,6 +355,7 @@ exports.refreshTokenController = async (req, res) => {
     const { refreshToken } = req.body;
 
     console.log('Refresh Token Request:', req.body);
+
     if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.trim() === '') {
         return res.status(400).json({ message: 'Refresh token is required' });
     }
@@ -363,7 +364,6 @@ exports.refreshTokenController = async (req, res) => {
         // Verify refresh token
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET_KEY);
 
-        // Validate token content
         if (!decoded || !decoded.userId || !decoded.tenantId) {
             return res.status(401).json({ message: 'Invalid refresh token payload' });
         }
@@ -376,12 +376,29 @@ exports.refreshTokenController = async (req, res) => {
 
         // Generate new access token
         const newAccessToken = jwt.sign(
-            { userId: user._id, tenantId: user.tenantId, role: user.userRole },
+            {
+                userId: user._id,
+                tenantId: user.tenantId,
+                role: user.userRole
+            },
             process.env.JWT_SECRET,
             { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '5d' }
         );
 
-        return res.status(200).json({ access_token: newAccessToken });
+        // Generate new refresh token
+        const newRefreshToken = jwt.sign(
+            {
+                userId: user._id,
+                tenantId: user.tenantId
+            },
+            process.env.REFRESH_SECRET_KEY,
+            { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
+        );
+
+        return res.status(200).json({
+            access_token: newAccessToken,
+            refresh_token: newRefreshToken
+        });
 
     } catch (error) {
         console.error('Refresh Token Error:', error.message);
@@ -392,7 +409,7 @@ exports.refreshTokenController = async (req, res) => {
 
 exports.sellerRegistrationController = async (req, res) => {
     try {
-        const { firstName, lastName, email, businessInfo, contactInfo , password , confirmPassword } = req.body;
+        const { firstName, lastName, email, businessInfo, contactInfo, password, confirmPassword } = req.body;
 
         if (!firstName || !lastName || !email || !businessInfo || !contactInfo || !password || !confirmPassword) {
             return res.status(400).json({ message: 'All required fields must be provided' });
