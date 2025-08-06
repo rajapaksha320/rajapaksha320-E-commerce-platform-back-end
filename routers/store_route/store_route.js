@@ -2,6 +2,19 @@ const express = require('express');
 const router = express.Router();
 const storeController = require('../../controllers/store_controller/store_controller');
 const authMiddleware = require('../../middlewares/auth_middleware/authMiddleware');
+const multer = require('multer');
+
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); 
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  },
+});
+
+const upload = multer({ storage });
 
 
 // create seller store
@@ -150,6 +163,9 @@ router.get('/:storeId', storeController.getOneStoreController);
 
 // filter shops using shop category 
 router.get('/filter-shops/:categoryId',storeController.filterShopsUsingCtaegory)
+
+
+router.post('/store-images',upload.single('image') ,storeController.createStoreImages);
 
 
 module.exports = router;
