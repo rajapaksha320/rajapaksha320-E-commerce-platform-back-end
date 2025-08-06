@@ -1,4 +1,6 @@
 const Store = require('../../models/store_model/store_model');
+const cloudinary = require('../../config/cloudinary');
+const fs = require('fs');
 
 exports.createStoreController = async (req, res) => {
   try {
@@ -95,7 +97,7 @@ exports.filterShopsUsingCtaegory = async (req, res) => {
   try {
     const { categoryId } = req.params;
     console.log('Filtering shops for category:', categoryId);
-    
+
 
     // Find stores that match the categoryId
     const shops = await Store.find({ categoryId: categoryId });
@@ -114,5 +116,26 @@ exports.filterShopsUsingCtaegory = async (req, res) => {
     console.log('Error filtering shops:', error);
     res.status(500).json({ success: false, message: 'Server error' });
 
+  }
+}
+
+
+exports.createStoreImages = async (req, res) => {
+  try {
+    const filePath = req.file.path;
+
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: 'my_uploads',
+    });
+
+    fs.unlinkSync(filePath);
+
+    res.status(200).json({
+      message: 'Image uploaded successfully',
+      url: result.secure_url,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Upload failed', error: error.message });
   }
 }
