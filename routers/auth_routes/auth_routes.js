@@ -155,5 +155,8 @@ router.post('/refresh-token', authController.refreshTokenController);
 // update personal info
 router.post('/seller-registration', authController.sellerRegistrationController);
 
+
+router.post('/seller-store-profile-info', authMiddleware, authController.getSellerStoreProfile);
+
 module.exports = router;
 
