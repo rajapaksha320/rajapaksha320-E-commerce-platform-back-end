@@ -7,6 +7,8 @@ const authMiddleware = require('../../middlewares/auth_middleware/authMiddleware
 
 router.post('/create', authMiddleware, listingController.createListing);
 
+router.post('/update/:listingId', authMiddleware, listingController.updateListing);
+
 router.get('/one-listing/:listingId', listingController.getListingById);
 
 router.get('/one-seller-listing/:userId', listingController.getOneSellerListing);
