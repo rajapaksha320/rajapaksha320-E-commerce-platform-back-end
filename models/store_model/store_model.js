@@ -2,56 +2,45 @@ const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const Schema = mongoose.Schema;
 
-const storeSchema = new Schema({
-  tenantId: {
-    type: String,
-    default: null,
-  },
+// Basic Information Schema
+const BasicInformationSchema = new Schema({
+  storeName: { type: String, required: true },
+  storeTagLine: { type: String },
+  storeDescription: { type: String }
+}, { _id: false });
+
+// Contact Details Schema
+const StoreContactDetailsSchema = new Schema({
+  storeLocation: { type: String },
+  storeContactNumber: { type: Number },
+  storeEmail: { type: String },
+  storeWebsite: { type: String },
+  storeBusinessHours: { type: String } // fixed typo
+}, { _id: false });
+
+// Shop Media Schema
+const ShopMediaSchema = new Schema({
+  storeLogo: { type: String },
+  bannerImage: { type: String }
+}, { _id: false });
+
+// Store Schema
+const StoreSchema = new Schema({
   storeId: {
     type: String,
     unique: true,
     index: true
   },
   sellerId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'Seller',
     required: true
   },
-  storeName: {
-    type: String,
-    required: true
-  },
-  storeDescription: {
-    type: String
-  },
-  storeLocation: {
-    type: String
-  },
-  storeLogo: {
-    type: String
-  },
-  bannerImage: {
-    type: String
-  },
-  totalSales: {
-    type: Number,
-    default: 0
-  },
-  categoryId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
-    required: true
-  },
-  storePolicies: {
-    type: String
-  },
-  totalProducts: {
-    type: Number,
-    default: 0
-  },
-  socialMediaLinks: {
-    type: [String]
-  },
+  basicInformation: BasicInformationSchema,
+  contactDetails: StoreContactDetailsSchema,
+  shopMedia: ShopMediaSchema,
+  totalSales: { type: Number, default: 0 },
+  totalProducts: { type: Number, default: 0 },
   status: {
     type: String,
     enum: ['active', 'inactive', 'pending'],
@@ -67,11 +56,12 @@ const storeSchema = new Schema({
   timestamps: true
 });
 
-storeSchema.pre('save', function (next) {
+// Generate storeId if not present
+StoreSchema.pre('save', function (next) {
   if (!this.storeId) {
     this.storeId = uuidv4();
   }
   next();
 });
 
-module.exports = mongoose.model('Store', storeSchema);
+module.exports = mongoose.model('Store', StoreSchema);

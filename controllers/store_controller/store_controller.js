@@ -67,32 +67,6 @@ exports.createStoreController = async (req, res) => {
   }
 }
 
-exports.getOneStoreController = async (req, res) => {
-  try {
-    console.log(req.body);
-    const { storeId } = req.params;
-
-    const response = await Store.findById(storeId)
-
-    if (!response) {
-      res.status(404).send({
-        success: false,
-        message: 'Store Not found'
-      })
-    }
-
-    res.status(201).send({
-      success: true,
-      message: 'Store fetched succesfull',
-      data: response
-    })
-
-  } catch (error) {
-    console.error('Error fetching store:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-}
-
 exports.filterShopsUsingCtaegory = async (req, res) => {
   try {
     const { categoryId } = req.params;
@@ -139,3 +113,97 @@ exports.createStoreImages = async (req, res) => {
     res.status(500).json({ message: 'Upload failed', error: error.message });
   }
 }
+
+exports.createStoreProfile = async (req, res) => {
+  try {
+    const {
+      storeName,
+      storeTagLine,
+      storeDescription,
+      storeLocation,
+      storeContactNumber,
+      storeEmail,
+      storeWebsite,
+      storeBusinessHours,
+      storeLogo,
+      bannerImage,
+      totalSales = 0,
+      totalProducts = 0,
+      status = 'active',
+      rating = 0,
+      role,
+      userId
+    } = req.body;
+
+    if (role !== 'seller') {
+      return res.status(403).json({ message: 'Unauthorized action. Only sellers can create stores.' });
+    }
+
+    const newStore = new Store({
+      sellerId: userId,
+      basicInformation: {
+        storeName,
+        storeTagLine,
+        storeDescription
+      },
+      contactDetails: {
+        storeLocation,
+        storeContactNumber,
+        storeEmail,
+        storeWebsite,
+        storeBusinessHours
+      },
+      shopMedia: {
+        storeLogo,
+        bannerImage
+      },
+      totalSales,
+      totalProducts,
+      status,
+      rating
+    });
+
+    const store = await newStore.save();
+
+    if (!store) {
+      return res.status(500).json({ message: 'Store creation failed' });
+    }
+
+    res.status(201).json({
+      message: 'Store created successfully',
+      data: store,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Error creating store profile:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+exports.updateStoreProfile = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const {updateData , role} = req.body;
+
+    if (role !== 'seller') {
+      return res.status(403).json({ message: 'Unauthorized action. Only sellers can update stores.' });
+    }
+
+    const updatedStore = await Store.findByIdAndUpdate(storeId, updateData, { new: true });
+
+    if (!updatedStore) {
+      return res.status(404).json({ message: 'Store not found' });
+    }
+    res.status(200).json({
+      message: 'Store updated successfully',
+      data: updatedStore,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Error updating store profile:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

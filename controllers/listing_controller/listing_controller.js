@@ -33,6 +33,32 @@ exports.createListing = async (req, res) => {
     }
 };
 
+
+exports.updateListing = async (req, res) => {
+    try {
+        const listingId = req.params.listingId;
+        const updateData = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(listingId)) {
+            return res.status(400).json({ message: 'Invalid listing ID' });
+        }
+
+        // Find the listing and update it
+        const updatedListing = await ListingModel.findByIdAndUpdate(listingId, updateData, { new: true });
+
+        if (!updatedListing) {
+            return res.status(404).json({ message: 'Listing not found' });
+        }
+
+        res.status(200).json({ message: 'Listing updated successfully', listing: updatedListing });
+        
+    } catch (error) {
+        console.error('Error updating listing:', error);
+        res.status(500).json({ message: 'Error updating listing', error: error.message });
+        
+    }
+}
+
 exports.getListingById = async (req, res) => {
     try {
         const listingId = req.params.listingId;

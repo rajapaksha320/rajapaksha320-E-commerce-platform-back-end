@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../../models/auth_model/User');
 const sendEmail = require('../../utils/nodemailer');
+const Store = require('../../models/store_model/store_model');
+
 
 exports.signup = async (req, res) => {
     try {
@@ -489,3 +491,26 @@ exports.sellerRegistrationController = async (req, res) => {
         return res.status(500).json({ message: 'Server error during seller registration' });
     }
 };
+
+
+exports.getSellerStoreProfile = async (req, res) => {
+    try {
+        const { userId ,role } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required.' });
+        }
+
+        const store = await Store.find({ sellerId: userId });
+
+        res.status(200).json({
+            success: true,
+            message: 'Store profile retrieved successfully',
+            data: store
+        });
+
+    } catch (error) {
+        console.error('Error retrieving store profile:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
