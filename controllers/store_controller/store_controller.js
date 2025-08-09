@@ -1,5 +1,7 @@
 const Store = require('../../models/store_model/store_model');
+const ListingModel = require('../../models/listing_model/listing_model');
 const cloudinary = require('../../config/cloudinary');
+const User = require('../../models/auth_model/User')
 const fs = require('fs');
 
 exports.createStoreController = async (req, res) => {
@@ -67,31 +69,69 @@ exports.createStoreController = async (req, res) => {
   }
 }
 
-exports.filterShopsUsingCtaegory = async (req, res) => {
+exports.filterShopsUsingCategory = async (req, res) => {
   try {
-    const { categoryId } = req.params;
-    console.log('Filtering shops for category:', categoryId);
+    const { categoryMain, categorySub, page = 1, pageSize = 10 } = req.query;
 
+    const shops = await Store.find();
+    const allListing = await ListingModel.find();
 
-    // Find stores that match the categoryId
-    const shops = await Store.find({ categoryId: categoryId });
+    const filterArray = [];
 
-    if (shops.length === 0) {
-      return res.status(404).json({ success: false, message: 'No shops found for this category' });
+    for (let i = 0; i < shops.length; i++) {
+      const shopSellerId = shops[i].sellerId?.toString();
+
+      for (let j = 0; j < allListing.length; j++) {
+        const listing = allListing[j];
+        const listingSellerId = listing.sellerDetails?.toString();
+
+        if (categoryMain === 'All') {
+          filterArray.push({
+            shop: shops[i],
+            listing: listing
+          });
+          continue;
+        }
+
+        if (
+          shopSellerId === listingSellerId &&
+          listing.category &&
+          listing.category.main === categoryMain &&
+          (!categorySub || listing.category.sub === categorySub)
+        ) {
+          filterArray.push({
+            shop: shops[i],
+            listing: listing
+          });
+        }
+      }
     }
+
+    // Pagination logic
+    const pageNumber = parseInt(page);
+    const size = parseInt(pageSize);
+    const total = filterArray.length;
+    const start = (pageNumber - 1) * size;
+    const end = start + size;
+    const paginatedData = filterArray.slice(start, end);
 
     res.status(200).json({
       success: true,
       message: 'Shops filtered successfully',
-      data: shops
+      data: paginatedData,
+      pagination: {
+        total,
+        page: pageNumber,
+        pageSize: size,
+        totalPages: Math.ceil(total / size)
+      }
     });
 
   } catch (error) {
     console.log('Error filtering shops:', error);
     res.status(500).json({ success: false, message: 'Server error' });
-
   }
-}
+};
 
 
 exports.createStoreImages = async (req, res) => {
@@ -185,7 +225,7 @@ exports.createStoreProfile = async (req, res) => {
 exports.updateStoreProfile = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const {updateData , role} = req.body;
+    const { updateData, role } = req.body;
 
     if (role !== 'seller') {
       return res.status(403).json({ message: 'Unauthorized action. Only sellers can update stores.' });
@@ -207,3 +247,82 @@ exports.updateStoreProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+
+exports.getAllCreatedStore = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const skip = (page - 1) * pageSize;
+
+    const totalStores = await Store.countDocuments();
+
+    const allStores = await Store.find().skip(skip).limit(pageSize);
+
+    if (!allStores || allStores.length === 0) {
+      return res.status(404).json({ message: 'No stores found' });
+    }
+
+    const allStoreWithSeller = await Promise.all(
+      allStores.map(async (store) => {
+        const seller = await User.findById(store.sellerId);
+        return { store, seller };
+      })
+    );
+
+    res.status(200).json({
+      message: 'All stores retrieved successfully',
+      data: allStoreWithSeller,
+      pagination: {
+        total: totalStores,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalStores / pageSize)
+      },
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Error retrieving stores:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+exports.getEachShopsListing = async (req, res) => {
+  try {
+    const { sellerId, page = 1, pageSize = 10 } = req.query;
+
+    const pageNumber = parseInt(page);
+    const size = parseInt(pageSize);
+    const skip = (pageNumber - 1) * size;
+
+    // Get total count for pagination
+    const totalListings = await ListingModel.countDocuments({ sellerDetails: sellerId });
+
+    // Paginated query
+    const listings = await ListingModel.find({ sellerDetails: sellerId })
+      .skip(skip)
+      .limit(size);
+
+    if (!listings || listings.length === 0) {
+      return res.status(404).json({ message: 'No listings found for this shop' });
+    }
+
+    res.status(200).json({
+      message: 'Shop listings retrieved successfully',
+      data: listings,
+      pagination: {
+        total: totalListings,
+        page: pageNumber,
+        pageSize: size,
+        totalPages: Math.ceil(totalListings / size)
+      },
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Error retrieving shop listings:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+}

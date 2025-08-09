@@ -101,7 +101,7 @@ const upload = multer({ storage });
 router.post('/create',authMiddleware, storeController.createStoreController);
 
 // filter shops using shop category 
-router.get('/filter-shops/:categoryId',storeController.filterShopsUsingCtaegory)
+// router.get('/filter-shops/:categoryId',storeController.filterShopsUsingCtaegory)
 
 
 router.post('/store-images',upload.single('image') ,storeController.createStoreImages);
@@ -109,5 +109,11 @@ router.post('/store-images',upload.single('image') ,storeController.createStoreI
 router.post('/create-store-profile', authMiddleware, storeController.createStoreProfile);
 
 router.post('/update-store-profile/:storeId', authMiddleware, storeController.updateStoreProfile);
+
+router.get('/get-all-store', storeController.getAllCreatedStore);
+
+router.get('/filter-category', storeController.filterShopsUsingCategory);
+
+router.get('/get-each-shop-listing', storeController.getEachShopsListing);
 
 module.exports = router;
