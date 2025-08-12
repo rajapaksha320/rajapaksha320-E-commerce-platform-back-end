@@ -180,7 +180,7 @@ exports.getAllListing = async (req, res) => {
     }
 };
 
-
+// removed
 exports.getListingByStatus = async (req, res) => {
     try {
         const { page = 1, pageSize = 10 , status } = req.query;
@@ -224,16 +224,34 @@ exports.getListingByStatus = async (req, res) => {
 
 exports.getListingByFilter = async (req, res) => {
     try {
-        const { categoryMain, priceRange, page = 1, pageSize = 10 } = req.query;
+        const { 
+            status, 
+            categoryMain, 
+            priceRange, 
+            page = 1, 
+            pageSize = 10 
+        } = req.query;
 
-        let filter = { status: 'active' };
+        const pageNumber = parseInt(page);
+        const size = parseInt(pageSize);
+        const skip = (pageNumber - 1) * size;
+
+        let filter = {};
+
+        if (status) {
+            if (!['active', 'inactive', 'draft', 'outOfStock', 'sold'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status' });
+            }
+            filter.status = status;
+        }
 
         if (categoryMain) {
             filter['category.main'] = categoryMain;
         }
-        
 
-        let listings = await ListingModel.find(filter);
+        let listings = await ListingModel.find(filter)
+            .skip(skip)
+            .limit(size);
 
         if (priceRange) {
             const [minPrice, maxPrice] = priceRange.split('-').map(Number);
@@ -245,38 +263,32 @@ exports.getListingByFilter = async (req, res) => {
             );
         }
 
-        const total = listings.length;
+        const totalListings = await ListingModel.countDocuments(filter);
 
-        if (total === 0) {
+        if (listings.length === 0) {
             return res.status(404).json({ message: 'No listings found with the specified filters' });
         }
 
-        const pageNumber = parseInt(page);
-        const size = parseInt(pageSize);
-        const start = (pageNumber - 1) * size;
-        const end = start + size;
-
-        const paginatedListings = listings.slice(start, end);
-
         res.status(200).json({
             success: true,
-            listings: paginatedListings,
+            listings,
             pagination: {
-                total,
+                total: totalListings,
                 page: pageNumber,
                 pageSize: size,
-                totalPages: Math.ceil(total / size),
+                totalPages: Math.ceil(totalListings / size),
             },
         });
 
     } catch (error) {
-        console.error('Error fetching listings by filter:', error);
-        res.status(500).json({
-            message: 'Error fetching listings by filter',
-            error: error.message,
+        console.error('Error fetching listings:', error);
+        res.status(500).json({ 
+            message: 'Error fetching listings', 
+            error: error.message 
         });
     }
 };
+
 
 
 exports.deleteOneListing = async (req, res) => {
@@ -298,5 +310,26 @@ exports.deleteOneListing = async (req, res) => {
     } catch (error) {
         console.error('Error deleting listing:', error);
         res.status(500).json({ message: 'Error deleting listing', error: error.message });
+    }
+}
+
+exports.getListingCategoryWise = async(req,res)=>{
+    try {
+        const { category } = req.params;
+
+        const listings = await ListingModel.find({ 'category.main': category });
+
+        if (!listings || listings.length === 0) {
+            return res.status(404).json({ message: 'No listings found for this category' });
+        }
+
+        res.status(200).json({
+            success: true,
+            listings
+        });
+
+    } catch (error) {
+        console.error('Error fetching listings by category:', error);
+        res.status(500).json({ message: 'Error fetching listings by category', error: error.message });
     }
 }

@@ -5,4 +5,6 @@ const cartController = require('../../controllers/cart_add_controller/cart_add_c
 // add to cart
 router.post('/add', cartController.addToCartController)
 
+router.get('/user/:buyerId', cartController.getUserCartController);
+
 module.exports = router;
