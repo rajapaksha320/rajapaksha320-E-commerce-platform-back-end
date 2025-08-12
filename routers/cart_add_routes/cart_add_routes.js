@@ -7,4 +7,7 @@ router.post('/add', cartController.addToCartController)
 
 router.get('/user/:buyerId', cartController.getUserCartController);
 
+router.post('/update', cartController.updateCartItemController);
+
+
 module.exports = router;

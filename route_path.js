@@ -5,6 +5,7 @@ const productRoutes = require('./routers/product_routes/product_routes');
 const cartRoutes = require('./routers/cart_add_routes/cart_add_routes');
 const filterRoutes = require('./routers/filter_routes/filter_routes');
 const listingRoute = require('./routers/listing_routes/listing_routes')
+const orderRoute = require('./routers/order_routes/order_routes')
 
 module.exports = (app) => {
   app.use('/api/v1/auth', authRoutes);
@@ -14,6 +15,7 @@ module.exports = (app) => {
   app.use('/api/v1/cart', cartRoutes);
   app.use('/api/v1/filter', filterRoutes);
   app.use('/api/v1/listing', listingRoute);
+  app.use('/api/v1/order', orderRoute);
   
 
   const setupSwaggerDocs = require('./swagger');

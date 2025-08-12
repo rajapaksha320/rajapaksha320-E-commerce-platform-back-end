@@ -105,3 +105,38 @@ exports.getUserCartController = async (req, res) => {
     }
 };
 
+
+exports.updateCartItemController = async (req, res) => {
+    try {
+        const { cartItemId, quantity } = req.body;
+
+        if (!cartItemId || quantity === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: 'cartItemId and quantity are required',
+            });
+        }
+
+        const cartItem = await Cart.findById(cartItemId);
+        if (!cartItem) {
+            return res.status(404).json({
+                success: false,
+                message: 'Cart item not found',
+            });
+        }
+
+        cartItem.quantity = quantity;
+        await cartItem.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Cart item updated successfully',
+            cartItem
+        });
+
+    } catch (error) {
+        console.error('Error updating cart item:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+}
+
