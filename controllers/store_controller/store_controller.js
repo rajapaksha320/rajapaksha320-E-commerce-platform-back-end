@@ -119,6 +119,7 @@ exports.filterShopsUsingCategory = async (req, res) => {
       success: true,
       message: 'Shops filtered successfully',
       data: paginatedData,
+      totalShops:total,
       pagination: {
         total,
         page: pageNumber,

@@ -20,6 +20,12 @@ const orderSchema = new Schema({
     required: true
   }],
 
+  storeIds: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true
+  }],
+
   shippingAddress: {
     type: String,
     required: true
@@ -39,6 +45,11 @@ const orderSchema = new Schema({
     type: String,
     enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
     default: 'pending'
+  },
+
+  isReviewed:{
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

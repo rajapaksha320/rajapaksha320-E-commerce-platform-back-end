@@ -8,4 +8,12 @@ router.post("/place-order", orderController.placeOrderController);
 
 router.get('/seller-orders/:sellerId', orderController.getEachSellerOrders);
 
+router.get('/buyer-orders/:buyerId', orderController.getEachBuyerOrders);
+
+router.post("/review-ratings", orderController.addReviewRating);
+
+router.get("/get-shop-reviews/:shopId", orderController.getAllReviewsWithEachShops);
+
+router.delete('/delete-review', orderController.deleteSellerRatings);
+
 module.exports = router;

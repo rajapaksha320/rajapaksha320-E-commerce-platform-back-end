@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/auth_model/User');
 const sendEmail = require('../../utils/nodemailer');
 const Store = require('../../models/store_model/store_model');
+const ListingModel = require('../../models/listing_model/listing_model')
 
 
 exports.signup = async (req, res) => {
@@ -316,7 +317,7 @@ exports.updateWishListController = async (req, res) => {
         }
 
         // find the user by userId and tenantId
-        const user = await User.findOne({ _id: userId, tenantId });
+        const user = await User.findOne({ _id: userId });
 
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
@@ -351,6 +352,107 @@ exports.updateWishListController = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+exports.getOneUserWatchListWithDetails = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { page = 1, size = 10 } = req.query;
+
+        const pageNumber = parseInt(page);
+        const pageSize = parseInt(size);
+        const skip = (pageNumber - 1) * pageSize;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required.' });
+        }
+
+        // Find the user and get their wishlist
+        const user = await User.findById(userId).lean();
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        if (!user.userWishlist || user.userWishlist.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'Wishlist is empty.',
+                wishlistDetails: [],
+                pagination: {
+                    totalItems: 0,
+                    totalPages: 0,
+                    currentPage: pageNumber,
+                    pageSize
+                }
+            });
+        }
+
+        const totalItems = user.userWishlist.length;
+
+        // Slice only the IDs for the requested page
+        const paginatedWishlistIds = user.userWishlist.slice(skip, skip + pageSize);
+
+        // Fetch listings for these IDs
+        const listings = await ListingModel.find({
+            _id: { $in: paginatedWishlistIds }
+        }).lean();
+
+        res.status(200).json({
+            success: true,
+            message: 'Wishlist fetched successfully.',
+            wishlistDetails: listings,
+            pagination: {
+                totalItems,
+                totalPages: Math.ceil(totalItems / pageSize),
+                currentPage: pageNumber,
+                pageSize
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching wishlist with details:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
+exports.deleteWatchList = async (req, res) => {
+    try {
+        const { userId, listingId } = req.params; // Expect both in route: /wishlist/:userId/:listingId
+
+        if (!userId || !listingId) {
+            return res.status(400).json({ message: 'User ID and Listing ID are required.' });
+        }
+
+        // Find the user
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        // Remove the listing from wishlist if it exists
+        const index = user.userWishlist.indexOf(listingId);
+        if (index > -1) {
+            user.userWishlist.splice(index, 1);
+            await user.save();
+            return res.status(200).json({
+                success: true,
+                message: 'Listing removed from wishlist successfully.',
+                wishlist: user.userWishlist
+            });
+        } else {
+            return res.status(404).json({
+                success: false,
+                message: 'Listing not found in user wishlist.'
+            });
+        }
+
+    } catch (error) {
+        console.error('Error deleting wishlist item:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 
 
 exports.refreshTokenController = async (req, res) => {

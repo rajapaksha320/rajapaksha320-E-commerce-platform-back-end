@@ -145,9 +145,16 @@ router.post('/update-business-info', authMiddleware, authController.updateBusine
 // update contact info
 router.post('/update-contact-info', authMiddleware, authController.updateContactInfoController);
 
-// update wish list
-router.post('/update-wish-list', authMiddleware, authController.updateWishListController);
+// update watch list
+router.post('/update-watch-list', authMiddleware, authController.updateWishListController);
 
+
+// get user watch list
+router.get('/get-user-watch-list/:userId',authController.getOneUserWatchListWithDetails)
+
+
+// delete user watch list
+router.delete('/delete-watchlist/:userId/:listingId', authController.deleteWatchList);
 
 // update user profile
 router.post('/refresh-token', authController.refreshTokenController);

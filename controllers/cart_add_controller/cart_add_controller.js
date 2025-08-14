@@ -67,6 +67,7 @@ exports.addToCartController = async (req, res) => {
 exports.getUserCartController = async (req, res) => {
     try {
         const { buyerId } = req.params;
+        const { page = 1, size = 10 } = req.query; // query params
 
         if (!buyerId) {
             return res.status(400).json({
@@ -75,15 +76,29 @@ exports.getUserCartController = async (req, res) => {
             });
         }
 
-        const cartItems = await Cart.find({ buyerId }).lean();
+        const pageNumber = parseInt(page);
+        const pageSize = parseInt(size);
+        const skip = (pageNumber - 1) * pageSize;
 
-        if (cartItems.length === 0) {
+        // Total items in the cart
+        const totalItems = await Cart.countDocuments({ buyerId });
+
+        if (totalItems === 0) {
             return res.status(200).json({
                 success: true,
                 cartData: [],
+                totalItems,
+                totalPages: 0,
+                currentPage: pageNumber,
                 message: 'Cart is empty'
             });
         }
+
+        // Paginated cart items
+        const cartItems = await Cart.find({ buyerId })
+            .skip(skip)
+            .limit(pageSize)
+            .lean();
 
         const listingIds = cartItems.map(item => item.listingId);
 
@@ -96,7 +111,10 @@ exports.getUserCartController = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            cartData
+            cartData,
+            totalItems,
+            totalPages: Math.ceil(totalItems / pageSize),
+            currentPage: pageNumber
         });
 
     } catch (error) {
@@ -139,4 +157,52 @@ exports.updateCartItemController = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 }
+
+
+exports.deleteCartItem = async (req, res) => {
+    const session = await Cart.startSession();
+    session.startTransaction();
+
+    try {
+        const { cartItemId } = req.params; // cart item ID to delete
+
+        if (!cartItemId) {
+            return res.status(400).json({ success: false, message: 'Cart item ID is required.' });
+        }
+
+        // Find the cart item
+        const cartItem = await Cart.findById(cartItemId).session(session);
+        if (!cartItem) {
+            await session.abortTransaction();
+            return res.status(404).json({ success: false, message: 'Cart item not found.' });
+        }
+
+        const listingId = cartItem.listingId;
+        const quantityToRestore = cartItem.quantity;
+
+        // Remove the cart item
+        await Cart.findByIdAndDelete(cartItemId, { session });
+
+        // Restore the quantity in the listing
+        const listing = await Listing.findById(listingId).session(session);
+        if (listing) {
+            listing.variations.quantity += quantityToRestore;
+            await Listing.findByIdAndUpdate(listingId, { variations: listing.variations }, { session });
+        }
+
+        await session.commitTransaction();
+
+        res.status(200).json({
+            success: true,
+            message: 'Cart item deleted successfully.'
+        });
+
+    } catch (error) {
+        console.error('Error deleting cart item:', error);
+        await session.abortTransaction();
+        res.status(500).json({ success: false, message: 'Server error' });
+    } finally {
+        session.endSession();
+    }
+};
 
