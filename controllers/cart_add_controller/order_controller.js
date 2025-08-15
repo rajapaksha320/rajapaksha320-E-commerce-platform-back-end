@@ -2,6 +2,8 @@ const Order = require('../../models/order_model/order_model');
 const Listing = require('../../models/listing_model/listing_model');
 const Store = require('../../models/store_model/store_model');
 const Review = require('../../models/review_model/review_model');
+const BuyerAddress = require('../../models/buyer_address_model/buyer_address_model');
+
 
 const mongoose = require('mongoose');
 
@@ -420,3 +422,173 @@ exports.deleteSellerRatings = async (req, res) => {
 };
 
 
+exports.buyerAddressCreate = async (req, res) => {
+  try {
+    const {
+      buyerId,
+      addressType,
+      firstName,
+      lastName,
+      streetAddress,
+      apartment,
+      city,
+      state,
+      zipCode,
+      phoneNumber,
+      isDefault
+    } = req.body;
+
+    if (!buyerId || !addressType || !firstName || !lastName || !streetAddress || !city || !state || !zipCode || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided'
+      });
+    }
+
+    const newAddress = new BuyerAddress({
+      buyerId,
+      addressType,
+      firstName,
+      lastName,
+      streetAddress,
+      apartment,
+      city,
+      state,
+      zipCode,
+      phoneNumber,
+      isDefault: isDefault || false
+    });
+
+    await newAddress.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Buyer address created successfully',
+      data: newAddress
+    });
+
+  } catch (error) {
+    console.error('Error creating buyer address:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+
+exports.getBuyerAddress = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+
+    if (!buyerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'buyerId is required'
+      });
+    }
+
+    const addresses = await BuyerAddress.find({ buyerId }).sort({ isDefault: -1, createdAt: -1 });
+
+    if (!addresses || addresses.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No addresses found for this buyer'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Buyer addresses fetched successfully',
+      data: addresses
+    });
+
+  } catch (error) {
+    console.error('Error fetching buyer addresses:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+}
+
+
+exports.updateBuyerAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const updateData = req.body;
+
+    if (!addressId) {
+      return res.status(400).json({
+        success: false,
+        message: 'addressId is required'
+      });
+    }
+
+    const updatedAddress = await BuyerAddress.findByIdAndUpdate(
+      addressId,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedAddress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Address not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Buyer address updated successfully',
+      data: updatedAddress
+    });
+
+  } catch (error) {
+    console.error('Error updating buyer address:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+
+exports.deleteBuyerAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+
+    if (!addressId) {
+      return res.status(400).json({
+        success: false,
+        message: 'addressId is required'
+      });
+    }
+
+    const deletedAddress = await BuyerAddress.findByIdAndDelete(addressId);
+
+    if (!deletedAddress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Address not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Buyer address deleted successfully',
+      data: deletedAddress
+    });
+
+  } catch (error) {
+    console.error('Error deleting buyer address:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};

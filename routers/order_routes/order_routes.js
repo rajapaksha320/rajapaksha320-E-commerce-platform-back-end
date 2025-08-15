@@ -16,4 +16,16 @@ router.get("/get-shop-reviews/:shopId", orderController.getAllReviewsWithEachSho
 
 router.delete('/delete-review', orderController.deleteSellerRatings);
 
+
+// buyer address
+router.post("/create-buyer-address",orderController.buyerAddressCreate)
+
+router.get("/buyer-address/:buyerId",orderController.getBuyerAddress)
+
+router.put("/update-buyer-address/:addressId",orderController.updateBuyerAddress)
+
+router.delete('/delete-buyer-address/:addressId',orderController.deleteBuyerAddress)
+
+
+
 module.exports = router;

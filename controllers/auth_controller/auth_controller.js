@@ -4,6 +4,7 @@ const User = require('../../models/auth_model/User');
 const sendEmail = require('../../utils/nodemailer');
 const Store = require('../../models/store_model/store_model');
 const ListingModel = require('../../models/listing_model/listing_model')
+const mongoose = require('mongoose');
 
 
 exports.signup = async (req, res) => {
@@ -307,112 +308,111 @@ exports.updateContactInfoController = async (req, res) => {
 }
 
 exports.updateWishListController = async (req, res) => {
-    try {
-        console.log('req.body', req.body);
+  try {
+    const { productWishlist = [], shopWishlist = [], userId } = req.body;
 
-        const { userWishlist, userId, tenantId } = req.body;
-
-        if (!userWishlist || !userId || !tenantId) {
-            return res.status(400).json({ message: 'Store ID, user ID, and tenant ID are required.' });
-        }
-
-        // find the user by userId and tenantId
-        const user = await User.findOne({ _id: userId });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        console.log(user);
-
-        for (const storeId of userWishlist) {
-            const index = user.userWishlist.indexOf(storeId);
-
-            if (index === -1) {
-                user.userWishlist.push(storeId);
-            } else {
-                user.userWishlist.splice(index, 1);
-                console.log(`Store ID ${storeId} already exists in wishlist, removing it.`);
-            }
-        }
-
-
-        await user.save();
-
-        console.log('Updated user:', user);
-
-        res.status(200).json({
-            success: true,
-            message: 'Wishlist updated successfully',
-            data: user
-        });
-
-    } catch (error) {
-        console.error('Error updating wishlist:', error);
-        res.status(500).json({ message: 'Server error' });
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized: userId not provided.' });
     }
-}
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    // Convert product IDs to ObjectId
+    const productIds = productWishlist.map(id => {
+      if (!mongoose.Types.ObjectId.isValid(id)) throw new Error(`Invalid productId: ${id}`);
+      return new mongoose.Types.ObjectId(id);
+    });
+
+    // Convert shop IDs to ObjectId
+    const shopIds = shopWishlist.map(id => {
+      if (!mongoose.Types.ObjectId.isValid(id)) throw new Error(`Invalid shopId: ${id}`);
+      return new mongoose.Types.ObjectId(id);
+    });
+
+    // Update or create default product wishlist
+    if (user.productWishlists && user.productWishlists.length > 0) {
+      // Replace items in the first/default wishlist
+      user.productWishlists[0].items = productIds;
+    } else {
+      user.productWishlists.push({ name: 'Default', items: productIds });
+    }
+
+    // Update or create default shop wishlist
+    if (user.shopWishlists && user.shopWishlists.length > 0) {
+      user.shopWishlists[0].items = shopIds;
+    } else {
+      user.shopWishlists.push({ name: 'Default', items: shopIds });
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Wishlist updated successfully',
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Error updating wishlist:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 
 exports.getOneUserWatchListWithDetails = async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { page = 1, size = 10 } = req.query;
+  try {
+    const { userId } = req.params;
 
-        const pageNumber = parseInt(page);
-        const pageSize = parseInt(size);
-        const skip = (pageNumber - 1) * pageSize;
-
-        if (!userId) {
-            return res.status(400).json({ message: 'User ID is required.' });
-        }
-
-        // Find the user and get their wishlist
-        const user = await User.findById(userId).lean();
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        if (!user.userWishlist || user.userWishlist.length === 0) {
-            return res.status(200).json({
-                success: true,
-                message: 'Wishlist is empty.',
-                wishlistDetails: [],
-                pagination: {
-                    totalItems: 0,
-                    totalPages: 0,
-                    currentPage: pageNumber,
-                    pageSize
-                }
-            });
-        }
-
-        const totalItems = user.userWishlist.length;
-
-        // Slice only the IDs for the requested page
-        const paginatedWishlistIds = user.userWishlist.slice(skip, skip + pageSize);
-
-        // Fetch listings for these IDs
-        const listings = await ListingModel.find({
-            _id: { $in: paginatedWishlistIds }
-        }).lean();
-
-        res.status(200).json({
-            success: true,
-            message: 'Wishlist fetched successfully.',
-            wishlistDetails: listings,
-            pagination: {
-                totalItems,
-                totalPages: Math.ceil(totalItems / pageSize),
-                currentPage: pageNumber,
-                pageSize
-            }
-        });
-
-    } catch (error) {
-        console.error('Error fetching wishlist with details:', error);
-        res.status(500).json({ message: 'Server error' });
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required.' });
     }
+
+    // Find the user
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Prepare product wishlists with details
+    const productWishlistsDetails = [];
+    if (user.productWishlists && user.productWishlists.length > 0) {
+      for (const wishlist of user.productWishlists) {
+        const items = await ListingModel.find({ _id: { $in: wishlist.items } })
+          .select('name price images category status') // product fields you need
+          .lean();
+        productWishlistsDetails.push({
+          name: wishlist.name,
+          items
+        });
+      }
+    }
+
+    // Prepare shop wishlists with all details
+    const shopWishlistsDetails = [];
+    if (user.shopWishlists && user.shopWishlists.length > 0) {
+      for (const wishlist of user.shopWishlists) {
+        const items = await Store.find({ _id: { $in: wishlist.items } }).lean(); // all fields
+        shopWishlistsDetails.push({
+          name: wishlist.name,
+          items
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Wishlists fetched successfully.',
+      wishlistDetails: {
+        productWishlists: productWishlistsDetails,
+        shopWishlists: shopWishlistsDetails
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching wishlist with details:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 };
 
 

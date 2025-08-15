@@ -122,12 +122,19 @@ const userSchema = new mongoose.Schema({
   },
 
 
-  userWishlist: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Store',
-  }],
+  productWishlists: [
+    {
+      name: { type: String, required: true }, // e.g., "Favorites", "For Later"
+      items: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Listing' }]
+    }
+  ],
 
-
+  shopWishlists: [
+    {
+      name: { type: String, required: true },
+      items: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }]
+    }
+  ],
 
 }, {
   timestamps: true,

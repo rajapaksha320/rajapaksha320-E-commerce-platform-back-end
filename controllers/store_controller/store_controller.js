@@ -73,41 +73,49 @@ exports.filterShopsUsingCategory = async (req, res) => {
   try {
     const { categoryMain, categorySub, page = 1, pageSize = 10 } = req.query;
 
-    const shops = await Store.find();
-    const allListing = await ListingModel.find();
+    const shops = await Store.find().lean();
+    const allListings = await ListingModel.find().lean();
 
     const filterArray = [];
 
-    for (let i = 0; i < shops.length; i++) {
-      const shopSellerId = shops[i].sellerId?.toString();
+    for (const shop of shops) {
+      const shopSellerId = shop.sellerId?.toString();
 
-      for (let j = 0; j < allListing.length; j++) {
-        const listing = allListing[j];
+      // Filter listings that belong to this shop and match query category
+      const shopListings = allListings.filter(listing => {
         const listingSellerId = listing.sellerDetails?.toString();
 
-        if (categoryMain === 'All') {
-          filterArray.push({
-            shop: shops[i],
-            listing: listing
-          });
-          continue;
-        }
+        if (categoryMain === 'All') return shopSellerId === listingSellerId;
 
-        if (
+        return (
           shopSellerId === listingSellerId &&
           listing.category &&
           listing.category.main === categoryMain &&
           (!categorySub || listing.category.sub === categorySub)
-        ) {
-          filterArray.push({
-            shop: shops[i],
-            listing: listing
-          });
+        );
+      });
+
+      if (shopListings.length > 0) {
+        // Calculate counts per main category for this shop
+        const categoryCounts = {};
+        const shopAllListings = allListings.filter(listing => listing.sellerDetails?.toString() === shopSellerId);
+
+        for (const listing of shopAllListings) {
+          if (listing.category && listing.category.main) {
+            categoryCounts[listing.category.main] = (categoryCounts[listing.category.main] || 0) + 1;
+          }
         }
+
+        filterArray.push({
+          shop,
+          listings: shopListings,
+          totalProductsInCategory: shopListings.length,
+          categoryCounts // counts per main category
+        });
       }
     }
 
-    // Pagination logic
+    // Pagination
     const pageNumber = parseInt(page);
     const size = parseInt(pageSize);
     const total = filterArray.length;
@@ -119,7 +127,7 @@ exports.filterShopsUsingCategory = async (req, res) => {
       success: true,
       message: 'Shops filtered successfully',
       data: paginatedData,
-      totalShops:total,
+      totalShops: total,
       pagination: {
         total,
         page: pageNumber,
@@ -130,9 +138,11 @@ exports.filterShopsUsingCategory = async (req, res) => {
 
   } catch (error) {
     console.log('Error filtering shops:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
+
+
 
 
 exports.createStoreImages = async (req, res) => {
