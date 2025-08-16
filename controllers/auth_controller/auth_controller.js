@@ -363,10 +363,15 @@ exports.updateWishListController = async (req, res) => {
 exports.getOneUserWatchListWithDetails = async (req, res) => {
   try {
     const { userId } = req.params;
+    const { page = 1, pageSize = 10 } = req.query;
 
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required.' });
     }
+
+    const pageNumber = parseInt(page, 10);
+    const size = parseInt(pageSize, 10);
+    const skip = (pageNumber - 1) * size;
 
     // Find the user
     const user = await User.findById(userId).lean();
@@ -376,26 +381,49 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
 
     // Prepare product wishlists with details
     const productWishlistsDetails = [];
-    if (user.productWishlists && user.productWishlists.length > 0) {
+    if (user.productWishlists?.length > 0) {
       for (const wishlist of user.productWishlists) {
+        const totalItems = await ListingModel.countDocuments({ _id: { $in: wishlist.items } });
+
         const items = await ListingModel.find({ _id: { $in: wishlist.items } })
-          .select('name price images category status') // product fields you need
+          .select('name price images category status')
+          .skip(skip)
+          .limit(size)
           .lean();
+
         productWishlistsDetails.push({
           name: wishlist.name,
-          items
+          pagination: {
+            totalItems,
+            currentPage: pageNumber,
+            pageSize: size,
+            totalPages: Math.ceil(totalItems / size),
+          },
+          items,
         });
       }
     }
 
-    // Prepare shop wishlists with all details
+    // Prepare shop wishlists with details
     const shopWishlistsDetails = [];
-    if (user.shopWishlists && user.shopWishlists.length > 0) {
+    if (user.shopWishlists?.length > 0) {
       for (const wishlist of user.shopWishlists) {
-        const items = await Store.find({ _id: { $in: wishlist.items } }).lean(); // all fields
+        const totalItems = await Store.countDocuments({ _id: { $in: wishlist.items } });
+
+        const items = await Store.find({ _id: { $in: wishlist.items } })
+          .skip(skip)
+          .limit(size)
+          .lean();
+
         shopWishlistsDetails.push({
           name: wishlist.name,
-          items
+          pagination: {
+            totalItems,
+            currentPage: pageNumber,
+            pageSize: size,
+            totalPages: Math.ceil(totalItems / size),
+          },
+          items,
         });
       }
     }
@@ -405,8 +433,8 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
       message: 'Wishlists fetched successfully.',
       wishlistDetails: {
         productWishlists: productWishlistsDetails,
-        shopWishlists: shopWishlistsDetails
-      }
+        shopWishlists: shopWishlistsDetails,
+      },
     });
 
   } catch (error) {
@@ -414,6 +442,7 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 
 exports.deleteWatchList = async (req, res) => {
