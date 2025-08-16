@@ -19,7 +19,7 @@ exports.createNewCategory = async (req, res) => {
       message: 'Category created successfully',
       data: newCategory,
     });
-    
+
   } catch (error) {
     console.error(error);
     res.status(500).send({
@@ -53,7 +53,7 @@ exports.getAllCategory = async (req, res) => {
 // new update
 exports.mainFilterController = async (req, res) => {
   try {
-    let {
+    const {
       categoryMain,
       PriceRange,
       CustomerRating,
@@ -63,6 +63,9 @@ exports.mainFilterController = async (req, res) => {
       pageSize = 10
     } = req.query;
 
+    console.log(categoryMain, PriceRange, CustomerRating, color, brandName);
+
+
     const andConditions = [];
 
     // Category filter
@@ -70,31 +73,23 @@ exports.mainFilterController = async (req, res) => {
       andConditions.push({ 'category.main': categoryMain });
     }
 
-    // Color filter (variations.color is array)
     if (color) {
-      // Normalize color input:
-      // - If repeated params, Express gives array
-      // - If comma-separated string, split it
-      let colors = [];
-      if (Array.isArray(color)) {
-        colors = color.flatMap(c => c.split(','));
-      } else {
-        colors = color.split(',');
-      }
-
-      // Remove empty strings and decode URI if needed
-      colors = colors.map(c => decodeURIComponent(c.trim())).filter(Boolean);
-
-      if (colors.length > 0) {
-        andConditions.push({ 'variations.color': { $in: colors } });
-      }
+      const colors = Array.isArray(color) ? color : [color];
+      andConditions.push({ 'variations.color': { $in: colors } });
     }
 
     // Price filter (only variations.price)
     if (PriceRange) {
       const [min, max] = PriceRange.split('-').map(Number);
       if (!isNaN(min) && !isNaN(max)) {
-        andConditions.push({ 'variations.price': { $gte: min, $lte: max } });
+        andConditions.push({
+          $expr: {
+            $and: [
+              { $gte: [{ $toDouble: { $arrayElemAt: ["$variations.price", 0] } }, min] },
+              { $lte: [{ $toDouble: { $arrayElemAt: ["$variations.price", 0] } }, max] }
+            ]
+          }
+        });
       }
     }
 
@@ -139,3 +134,4 @@ exports.mainFilterController = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+

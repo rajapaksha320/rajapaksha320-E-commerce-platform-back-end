@@ -674,3 +674,39 @@ exports.getSellerStoreProfile = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+
+exports.getUserProfile = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+
+    if (!buyerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid buyerId is required in query.'
+      });
+    }
+
+    const user = await User.findById(buyerId)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User profile fetched successfully.',
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Error retrieving user profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching user profile.',
+      error: error.message
+    });
+  }
+};

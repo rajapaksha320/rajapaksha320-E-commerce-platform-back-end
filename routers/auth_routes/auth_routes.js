@@ -170,5 +170,7 @@ router.post('/update-buyer-profile', buyerProfileController.updateBuyerProfile)
 
 router.delete('/delete-buyer-profile/:buyerId',buyerProfileController.deleteBuyerProfile)
 
+router.get('/get-buyer-profile/:buyerId',authController.getUserProfile)
+
 module.exports = router;
 
