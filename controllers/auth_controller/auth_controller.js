@@ -513,8 +513,6 @@ exports.deleteWatchList = async (req, res) => {
 };
 
 
-
-
 exports.refreshTokenController = async (req, res) => {
     const { refreshToken } = req.body;
 

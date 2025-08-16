@@ -136,6 +136,31 @@ const userSchema = new mongoose.Schema({
     }
   ],
 
+  phoneNumber:{
+    type:Number,
+    required:false
+  },
+
+  dateOfBirth:{
+    type:Date,
+    required:false
+  },
+
+  gender:{
+    type:String,
+    required:false
+  },
+
+  bio:{
+    type:String,
+    required:false
+  },
+
+  isActive:{
+    type:Boolean,
+    default:true
+  }
+
 }, {
   timestamps: true,
 });

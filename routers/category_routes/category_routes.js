@@ -10,4 +10,8 @@ router.post('/create',categoryController.createNewCategory)
 // fetch all category
 router.get('/fetch-all',categoryController.getAllCategory)
 
+
+// main filter
+router.get("/main-filter",categoryController.mainFilterController)
+
 module.exports = router;

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../../controllers/auth_controller/auth_controller');
+const buyerProfileController = require("../../controllers/buyer_profile_controller/buyer_profile_controller")
 const authMiddleware = require('../../middlewares/auth_middleware/authMiddleware');
 
 /**
@@ -164,6 +165,10 @@ router.post('/seller-registration', authController.sellerRegistrationController)
 
 
 router.post('/seller-store-profile-info', authMiddleware, authController.getSellerStoreProfile);
+
+router.post('/update-buyer-profile', buyerProfileController.updateBuyerProfile)
+
+router.delete('/delete-buyer-profile/:buyerId',buyerProfileController.deleteBuyerProfile)
 
 module.exports = router;
 

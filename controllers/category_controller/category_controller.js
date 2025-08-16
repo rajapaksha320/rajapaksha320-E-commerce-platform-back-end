@@ -1,4 +1,6 @@
 const Category = require('../../models/category_model/category_model');
+const ListingModel = require('../../models/listing_model/listing_model');
+
 
 exports.createNewCategory = async (req, res) => {
   try {
@@ -43,5 +45,97 @@ exports.getAllCategory = async (req, res) => {
       success: false,
       message: 'Error occurred while fetching categories',
     });
+  }
+};
+
+
+
+// new update
+exports.mainFilterController = async (req, res) => {
+  try {
+    let {
+      categoryMain,
+      PriceRange,
+      CustomerRating,
+      color,
+      brandName,
+      page = 1,
+      pageSize = 10
+    } = req.query;
+
+    const andConditions = [];
+
+    // Category filter
+    if (categoryMain) {
+      andConditions.push({ 'category.main': categoryMain });
+    }
+
+    // Color filter (variations.color is array)
+    if (color) {
+      // Normalize color input:
+      // - If repeated params, Express gives array
+      // - If comma-separated string, split it
+      let colors = [];
+      if (Array.isArray(color)) {
+        colors = color.flatMap(c => c.split(','));
+      } else {
+        colors = color.split(',');
+      }
+
+      // Remove empty strings and decode URI if needed
+      colors = colors.map(c => decodeURIComponent(c.trim())).filter(Boolean);
+
+      if (colors.length > 0) {
+        andConditions.push({ 'variations.color': { $in: colors } });
+      }
+    }
+
+    // Price filter (only variations.price)
+    if (PriceRange) {
+      const [min, max] = PriceRange.split('-').map(Number);
+      if (!isNaN(min) && !isNaN(max)) {
+        andConditions.push({ 'variations.price': { $gte: min, $lte: max } });
+      }
+    }
+
+    // Customer rating filter
+    if (CustomerRating) {
+      andConditions.push({ averageRating: { $gte: Number(CustomerRating) } });
+    }
+
+    // Brand filter
+    if (brandName) {
+      andConditions.push({ brand: brandName });
+    }
+
+    // Build final filter
+    const filter = andConditions.length > 0 ? { $and: andConditions } : {};
+
+    // Pagination
+    const pageNumber = parseInt(page, 10);
+    const size = parseInt(pageSize, 10);
+    const skip = (pageNumber - 1) * size;
+
+    const totalListings = await ListingModel.countDocuments(filter);
+    const listings = await ListingModel.find(filter)
+      .skip(skip)
+      .limit(size)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      message: 'Filtered listings fetched successfully.',
+      pagination: {
+        totalItems: totalListings,
+        currentPage: pageNumber,
+        pageSize: size,
+        totalPages: Math.ceil(totalListings / size),
+      },
+      data: listings,
+    });
+
+  } catch (error) {
+    console.error('Error in mainFilterController:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
