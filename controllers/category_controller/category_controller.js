@@ -51,6 +51,7 @@ exports.getAllCategory = async (req, res) => {
 
 
 // new update
+
 exports.mainFilterController = async (req, res) => {
   try {
     const {
@@ -61,33 +62,44 @@ exports.mainFilterController = async (req, res) => {
       brandName,
     } = req.body;
 
-    const {page = 1, pageSize = 10} = req.query
-
-    console.log(categoryMain, PriceRange, CustomerRating, color, brandName);
-
+    const { page = 1, pageSize = 10, sellerId } = req.query;
 
     const andConditions = [];
+
+    // Optional sellerId filter
+    if (sellerId) {
+      andConditions.push({ sellerDetails: sellerId });
+    }
 
     // Category filter
     if (categoryMain) {
       andConditions.push({ 'category.main': categoryMain });
     }
 
+    // Color filter
     if (color) {
       const colors = Array.isArray(color) ? color : [color];
       andConditions.push({ 'variations.color': { $in: colors } });
     }
 
-    // Price filter (only variations.price)
+    // Price filter (check all variations)
     if (PriceRange) {
       const [min, max] = PriceRange.split('-').map(Number);
       if (!isNaN(min) && !isNaN(max)) {
         andConditions.push({
           $expr: {
-            $and: [
-              { $gte: [{ $toDouble: { $arrayElemAt: ["$variations.price", 0] } }, min] },
-              { $lte: [{ $toDouble: { $arrayElemAt: ["$variations.price", 0] } }, max] }
-            ]
+            $anyElementTrue: {
+              $map: {
+                input: '$variations',
+                as: 'v',
+                in: {
+                  $and: [
+                    { $gte: [{ $toDouble: '$$v.price' }, min] },
+                    { $lte: [{ $toDouble: '$$v.price' }, max] }
+                  ]
+                }
+              }
+            }
           }
         });
       }
@@ -111,7 +123,10 @@ exports.mainFilterController = async (req, res) => {
     const size = parseInt(pageSize, 10);
     const skip = (pageNumber - 1) * size;
 
+    // Total listings
     const totalListings = await ListingModel.countDocuments(filter);
+
+    // Fetch filtered listings
     const listings = await ListingModel.find(filter)
       .skip(skip)
       .limit(size)
@@ -134,4 +149,5 @@ exports.mainFilterController = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
