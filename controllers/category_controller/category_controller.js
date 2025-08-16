@@ -59,9 +59,9 @@ exports.mainFilterController = async (req, res) => {
       CustomerRating,
       color,
       brandName,
-      page = 1,
-      pageSize = 10
-    } = req.query;
+    } = req.body;
+
+    const {page = 1, pageSize = 10} = req.query
 
     console.log(categoryMain, PriceRange, CustomerRating, color, brandName);
 
