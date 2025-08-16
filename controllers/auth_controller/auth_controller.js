@@ -446,42 +446,73 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
 
 
 exports.deleteWatchList = async (req, res) => {
-    try {
-        const { userId, listingId } = req.params; // Expect both in route: /wishlist/:userId/:listingId
+  try {
+    const { userId, listingId } = req.params;
 
-        if (!userId || !listingId) {
-            return res.status(400).json({ message: 'User ID and Listing ID are required.' });
-        }
-
-        // Find the user
-        const user = await User.findById(userId);
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        // Remove the listing from wishlist if it exists
-        const index = user.userWishlist.indexOf(listingId);
-        if (index > -1) {
-            user.userWishlist.splice(index, 1);
-            await user.save();
-            return res.status(200).json({
-                success: true,
-                message: 'Listing removed from wishlist successfully.',
-                wishlist: user.userWishlist
-            });
-        } else {
-            return res.status(404).json({
-                success: false,
-                message: 'Listing not found in user wishlist.'
-            });
-        }
-
-    } catch (error) {
-        console.error('Error deleting wishlist item:', error);
-        res.status(500).json({ message: 'Server error' });
+    if (!userId || !listingId) {
+      return res.status(400).json({ message: 'User ID and Listing ID are required.' });
     }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    let updated = false;
+
+    // Remove from product wishlists
+    if (user.productWishlists?.length > 0) {
+      for (const wishlist of user.productWishlists) {
+        const index = wishlist.items.findIndex(
+          (id) => id.toString() === listingId.toString()
+        );
+        if (index > -1) {
+          wishlist.items.splice(index, 1);
+          updated = true;
+          break;
+        }
+      }
+    }
+
+    // Remove from shop wishlists
+    if (!updated && user.shopWishlists?.length > 0) {
+      for (const wishlist of user.shopWishlists) {
+        const index = wishlist.items.findIndex(
+          (id) => id.toString() === listingId.toString()
+        );
+        if (index > -1) {
+          wishlist.items.splice(index, 1);
+          updated = true;
+          break;
+        }
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found in any wishlist.'
+      });
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Listing removed from wishlist successfully.',
+      wishlist: {
+        productWishlists: user.productWishlists,
+        shopWishlists: user.shopWishlists
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting wishlist item:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 };
+
+
 
 
 exports.refreshTokenController = async (req, res) => {
