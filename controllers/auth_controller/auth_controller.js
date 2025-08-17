@@ -710,3 +710,37 @@ exports.getUserProfile = async (req, res) => {
     });
   }
 };
+
+exports.getAllUsersController = async (req, res) => {
+  try {
+    const { page = 1, pageSize = 10 } = req.query;
+
+    const pageNumber = parseInt(page);
+    const size = parseInt(pageSize);
+    const skip = (pageNumber - 1) * size;
+
+    // Total users count
+    const totalUsers = await User.countDocuments();
+
+    // Fetch users with pagination
+    const users = await User.find()
+      .skip(skip)
+      .limit(size)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      totalUsers,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalUsers / size),
+      data: users,
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message,
+    });
+  }
+};

@@ -46,6 +46,10 @@ const StoreSchema = new Schema({
     enum: ['active', 'inactive', 'pending'],
     default: 'active'
   },
+  isDiactivate:{
+    type:Boolean,
+    default:false
+  },
   rating: {
     type: Number,
     min: 0,

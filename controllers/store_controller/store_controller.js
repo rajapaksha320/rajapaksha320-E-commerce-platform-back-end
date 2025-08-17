@@ -143,8 +143,6 @@ exports.filterShopsUsingCategory = async (req, res) => {
 };
 
 
-
-
 exports.createStoreImages = async (req, res) => {
   try {
     const filePath = req.file.path;
@@ -238,8 +236,10 @@ exports.updateStoreProfile = async (req, res) => {
     const { storeId } = req.params;
     const { updateData, role } = req.body;
 
-    if (role !== 'seller') {
-      return res.status(403).json({ message: 'Unauthorized action. Only sellers can update stores.' });
+    if (role !== 'seller' && role !== 'admin') {
+      return res.status(403).json({
+        message: 'Unauthorized action. Only sellers or admins can update stores.',
+      });
     }
 
     const updatedStore = await Store.findByIdAndUpdate(storeId, updateData, { new: true });

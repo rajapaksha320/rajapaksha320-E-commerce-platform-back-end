@@ -3,7 +3,16 @@ const mongoose = require('mongoose');
 
 exports.updateBuyerProfile = async (req, res) => {
   try {
-    const { userId, phoneNumber, dateOfBirth, gender, bio, isActive } = req.body;
+    const { 
+      userId, 
+      firstName, 
+      lastName, 
+      phoneNumber, 
+      dateOfBirth, 
+      gender, 
+      bio, 
+      isActive 
+    } = req.body;
 
     // Validate userId
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -23,6 +32,8 @@ exports.updateBuyerProfile = async (req, res) => {
     }
 
     // Update fields if provided
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
     if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
     if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
     if (gender !== undefined) user.gender = gender;
