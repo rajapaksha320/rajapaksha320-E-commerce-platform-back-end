@@ -116,4 +116,6 @@ router.get('/filter-category', storeController.filterShopsUsingCategory);
 
 router.get('/get-each-shop-listing', storeController.getEachShopsListing);
 
+router.get('/get-store-by-id/:storeId',storeController.getOneShopById)
+
 module.exports = router;

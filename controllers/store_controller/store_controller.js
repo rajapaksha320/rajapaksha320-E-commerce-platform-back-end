@@ -338,3 +338,36 @@ exports.getEachShopsListing = async (req, res) => {
   }
 }
 
+exports.getOneShopById = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'storeId is required',
+      });
+    }
+
+    const shop = await Store.findById(storeId).lean();
+
+    if (!shop) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shop not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: shop,
+    });
+  } catch (error) {
+    console.error('Error fetching shop:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message,
+    });
+  }
+};
