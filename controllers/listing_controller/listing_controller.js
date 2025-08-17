@@ -126,7 +126,6 @@ exports.getOneSellerListing = async (req, res) => {
 };
 
 
-
 exports.getAllListing = async (req, res) => {
     try {
         const { page = 1, pageSize = 10 } = req.query;
@@ -134,16 +133,16 @@ exports.getAllListing = async (req, res) => {
         const size = parseInt(pageSize);
         const skip = (pageNumber - 1) * size;
 
-        // Total count for pagination
-        const totalListings = await ListingModel.countDocuments({ status: 'active' });
+        // Total count for pagination - no status filter
+        const totalListings = await ListingModel.countDocuments({});
 
-        // Paginated listing query
-        const listings = await ListingModel.find({ status: 'active' })
+        // Paginated listing query - no status filter
+        const listings = await ListingModel.find({})
             .skip(skip)
             .limit(size);
 
         if (!listings || listings.length === 0) {
-            return res.status(404).json({ message: 'No active listings found' });
+            return res.status(404).json({ message: 'No listings found' });
         }
 
         // Attach seller info
@@ -181,6 +180,7 @@ exports.getAllListing = async (req, res) => {
 };
 
 
+// removed
 exports.getListingByStatus = async (req, res) => {
     try {
         const { page = 1, pageSize = 10 , status } = req.query;
@@ -222,60 +222,74 @@ exports.getListingByStatus = async (req, res) => {
 
 
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.getListingByFilter = async (req, res) => {
-    try {
-        const { categoryMain, priceRange, page = 1, pageSize = 10 } = req.query;
+  try {
+    const { 
+      status, 
+      category, 
+      priceRange,
+      search,
+      page = 1, 
+      pageSize = 10 
+    } = req.query;
 
-        let filter = { status: 'active' };
+    const pageNumber = parseInt(page);
+    const size = parseInt(pageSize);
+    const skip = (pageNumber - 1) * size;
 
-        if (categoryMain) {
-            filter['category.main'] = categoryMain;
-        }
-        
+    let filter = {};
 
-        let listings = await ListingModel.find(filter);
-
-        if (priceRange) {
-            const [minPrice, maxPrice] = priceRange.split('-').map(Number);
-            listings = listings.filter(listing =>
-                listing.variations?.some(variation => {
-                    const price = parseFloat(variation.price);
-                    return price >= minPrice && price <= maxPrice;
-                })
-            );
-        }
-
-        const total = listings.length;
-
-        if (total === 0) {
-            return res.status(404).json({ message: 'No listings found with the specified filters' });
-        }
-
-        const pageNumber = parseInt(page);
-        const size = parseInt(pageSize);
-        const start = (pageNumber - 1) * size;
-        const end = start + size;
-
-        const paginatedListings = listings.slice(start, end);
-
-        res.status(200).json({
-            success: true,
-            listings: paginatedListings,
-            pagination: {
-                total,
-                page: pageNumber,
-                pageSize: size,
-                totalPages: Math.ceil(total / size),
-            },
-        });
-
-    } catch (error) {
-        console.error('Error fetching listings by filter:', error);
-        res.status(500).json({
-            message: 'Error fetching listings by filter',
-            error: error.message,
-        });
+    if (status) {
+      if (!['active', 'inactive', 'draft', 'outOfStock', 'sold'].includes(status)) {
+          return res.status(400).json({ message: 'Invalid status' });
+      }
+      filter.status = status;
     }
+
+    if (category) {
+      filter['category.main'] = category;
+    }
+
+    if (search) {
+      const escapedSearch = escapeRegex(search);
+      filter.title = { $regex: escapedSearch, $options: 'i' };
+    }
+
+    if (priceRange) {
+      const [minPrice, maxPrice] = priceRange.split('-').map(Number);
+      if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+          filter['variations.price'] = { $gte: minPrice, $lte: maxPrice };
+      }
+    }
+
+    const totalListings = await ListingModel.countDocuments(filter);
+
+    const listings = await ListingModel.find(filter)
+      .skip(skip)
+      .limit(size);
+
+    res.status(200).json({
+      success: true,
+      listings,
+      pagination: {
+          total: totalListings,
+          page: pageNumber,
+          pageSize: size,
+          totalPages: Math.ceil(totalListings / size),
+      },
+    });
+
+  } catch (error) {
+    console.error('Error fetching listings:', error);
+    res.status(500).json({ 
+      message: 'Error fetching listings', 
+      error: error.message 
+    });
+  }
 };
 
 
@@ -298,5 +312,26 @@ exports.deleteOneListing = async (req, res) => {
     } catch (error) {
         console.error('Error deleting listing:', error);
         res.status(500).json({ message: 'Error deleting listing', error: error.message });
+    }
+}
+
+exports.getListingCategoryWise = async(req,res)=>{
+    try {
+        const { category } = req.params;
+
+        const listings = await ListingModel.find({ 'category.main': category });
+
+        if (!listings || listings.length === 0) {
+            return res.status(404).json({ message: 'No listings found for this category' });
+        }
+
+        res.status(200).json({
+            success: true,
+            listings
+        });
+
+    } catch (error) {
+        console.error('Error fetching listings by category:', error);
+        res.status(500).json({ message: 'Error fetching listings by category', error: error.message });
     }
 }

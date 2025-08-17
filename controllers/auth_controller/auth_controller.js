@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/auth_model/User');
 const sendEmail = require('../../utils/nodemailer');
 const Store = require('../../models/store_model/store_model');
+const ListingModel = require('../../models/listing_model/listing_model')
+const mongoose = require('mongoose');
 
 
 exports.signup = async (req, res) => {
@@ -306,51 +308,209 @@ exports.updateContactInfoController = async (req, res) => {
 }
 
 exports.updateWishListController = async (req, res) => {
-    try {
-        console.log('req.body', req.body);
+  try {
+    const { productWishlist = [], shopWishlist = [], userId } = req.body;
 
-        const { userWishlist, userId, tenantId } = req.body;
-
-        if (!userWishlist || !userId || !tenantId) {
-            return res.status(400).json({ message: 'Store ID, user ID, and tenant ID are required.' });
-        }
-
-        // find the user by userId and tenantId
-        const user = await User.findOne({ _id: userId, tenantId });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        console.log(user);
-
-        for (const storeId of userWishlist) {
-            const index = user.userWishlist.indexOf(storeId);
-
-            if (index === -1) {
-                user.userWishlist.push(storeId);
-            } else {
-                user.userWishlist.splice(index, 1);
-                console.log(`Store ID ${storeId} already exists in wishlist, removing it.`);
-            }
-        }
-
-
-        await user.save();
-
-        console.log('Updated user:', user);
-
-        res.status(200).json({
-            success: true,
-            message: 'Wishlist updated successfully',
-            data: user
-        });
-
-    } catch (error) {
-        console.error('Error updating wishlist:', error);
-        res.status(500).json({ message: 'Server error' });
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized: userId not provided.' });
     }
-}
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    // Convert product IDs to ObjectId
+    const productIds = productWishlist.map(id => {
+      if (!mongoose.Types.ObjectId.isValid(id)) throw new Error(`Invalid productId: ${id}`);
+      return new mongoose.Types.ObjectId(id);
+    });
+
+    // Convert shop IDs to ObjectId
+    const shopIds = shopWishlist.map(id => {
+      if (!mongoose.Types.ObjectId.isValid(id)) throw new Error(`Invalid shopId: ${id}`);
+      return new mongoose.Types.ObjectId(id);
+    });
+
+    // Update or create default product wishlist
+    if (user.productWishlists && user.productWishlists.length > 0) {
+      // Replace items in the first/default wishlist
+      user.productWishlists[0].items = productIds;
+    } else {
+      user.productWishlists.push({ name: 'Default', items: productIds });
+    }
+
+    // Update or create default shop wishlist
+    if (user.shopWishlists && user.shopWishlists.length > 0) {
+      user.shopWishlists[0].items = shopIds;
+    } else {
+      user.shopWishlists.push({ name: 'Default', items: shopIds });
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Wishlist updated successfully',
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Error updating wishlist:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+exports.getOneUserWatchListWithDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, pageSize = 10 } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required.' });
+    }
+
+    const pageNumber = parseInt(page, 10);
+    const size = parseInt(pageSize, 10);
+    const skip = (pageNumber - 1) * size;
+
+    // Find the user
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Prepare product wishlists with details
+    const productWishlistsDetails = [];
+    if (user.productWishlists?.length > 0) {
+      for (const wishlist of user.productWishlists) {
+        const totalItems = await ListingModel.countDocuments({ _id: { $in: wishlist.items } });
+
+        const items = await ListingModel.find({ _id: { $in: wishlist.items } })
+          .select('name price images category status')
+          .skip(skip)
+          .limit(size)
+          .lean();
+
+        productWishlistsDetails.push({
+          name: wishlist.name,
+          pagination: {
+            totalItems,
+            currentPage: pageNumber,
+            pageSize: size,
+            totalPages: Math.ceil(totalItems / size),
+          },
+          items,
+        });
+      }
+    }
+
+    // Prepare shop wishlists with details
+    const shopWishlistsDetails = [];
+    if (user.shopWishlists?.length > 0) {
+      for (const wishlist of user.shopWishlists) {
+        const totalItems = await Store.countDocuments({ _id: { $in: wishlist.items } });
+
+        const items = await Store.find({ _id: { $in: wishlist.items } })
+          .skip(skip)
+          .limit(size)
+          .lean();
+
+        shopWishlistsDetails.push({
+          name: wishlist.name,
+          pagination: {
+            totalItems,
+            currentPage: pageNumber,
+            pageSize: size,
+            totalPages: Math.ceil(totalItems / size),
+          },
+          items,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Wishlists fetched successfully.',
+      wishlistDetails: {
+        productWishlists: productWishlistsDetails,
+        shopWishlists: shopWishlistsDetails,
+      },
+    });
+
+  } catch (error) {
+    console.error('Error fetching wishlist with details:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+
+exports.deleteWatchList = async (req, res) => {
+  try {
+    const { userId, listingId } = req.params;
+
+    if (!userId || !listingId) {
+      return res.status(400).json({ message: 'User ID and Listing ID are required.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    let updated = false;
+
+    // Remove from product wishlists
+    if (user.productWishlists?.length > 0) {
+      for (const wishlist of user.productWishlists) {
+        const index = wishlist.items.findIndex(
+          (id) => id.toString() === listingId.toString()
+        );
+        if (index > -1) {
+          wishlist.items.splice(index, 1);
+          updated = true;
+          break;
+        }
+      }
+    }
+
+    // Remove from shop wishlists
+    if (!updated && user.shopWishlists?.length > 0) {
+      for (const wishlist of user.shopWishlists) {
+        const index = wishlist.items.findIndex(
+          (id) => id.toString() === listingId.toString()
+        );
+        if (index > -1) {
+          wishlist.items.splice(index, 1);
+          updated = true;
+          break;
+        }
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found in any wishlist.'
+      });
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Listing removed from wishlist successfully.',
+      wishlist: {
+        productWishlists: user.productWishlists,
+        shopWishlists: user.shopWishlists
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting wishlist item:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 
 exports.refreshTokenController = async (req, res) => {
@@ -514,3 +674,73 @@ exports.getSellerStoreProfile = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+
+exports.getUserProfile = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+
+    if (!buyerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid buyerId is required in query.'
+      });
+    }
+
+    const user = await User.findById(buyerId)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User profile fetched successfully.',
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Error retrieving user profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching user profile.',
+      error: error.message
+    });
+  }
+};
+
+exports.getAllUsersController = async (req, res) => {
+  try {
+    const { page = 1, pageSize = 10 } = req.query;
+
+    const pageNumber = parseInt(page);
+    const size = parseInt(pageSize);
+    const skip = (pageNumber - 1) * size;
+
+    // Total users count
+    const totalUsers = await User.countDocuments();
+
+    // Fetch users with pagination
+    const users = await User.find()
+      .skip(skip)
+      .limit(size)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      totalUsers,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalUsers / size),
+      data: users,
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message,
+    });
+  }
+};

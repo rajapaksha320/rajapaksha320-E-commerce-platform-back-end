@@ -2,33 +2,50 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const reviewSchema = new Schema({
-  tenantId: {
-    type: String,
-    default: null
-  },
-  userId: {
+  buyerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  productId: {
+  shopId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
+    ref: 'Store', // assuming shop = store
     required: true
   },
-  orderId: {
+  listingId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order',
+    ref: 'Listing',
     required: true
   },
-  rating: {
+  review: {
+    type: String // main review text
+  },
+  shoppingExperience: {
+    type: Number,
+    min: 0,
+    max: 5
+  },
+  customerService: {
+    type: Number,
+    min: 0,
+    max: 5
+  },
+  productQuality: {
+    type: Number,
+    min: 0,
+    max: 5
+  },
+  deliverySpeed: {
+    type: Number,
+    min: 0,
+    max: 5
+  },
+
+  averageRating: {
     type: Number,
     min: 0,
     max: 5,
-    required: true
-  },
-  feedback: {
-    type: String
+    default: 0
   },
   createdAt: {
     type: Date,

@@ -56,6 +56,12 @@ const ListingModelSchema = new mongoose.Schema({
     variations: [VariationSchema],
     shippingClass: shippingClassSchema,
     status: { type: String, enum: ['active', 'inactive', 'draft', 'outOfStock', 'sold'], default: 'active' },
+    averageRating: { type: Number, min: 0, max: 5, default: 0 },
+    review: {type:String , default: ''},
+    isDiactivate:{
+        type:String,
+        default:false
+    },
     createdAt: { type: Date, default: Date.now }, // Added default
     updatedAt: { type: Date, default: Date.now }  // Added default
 });
