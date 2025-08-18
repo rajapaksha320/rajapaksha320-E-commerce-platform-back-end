@@ -95,6 +95,99 @@ exports.getEachSellerOrders = async (req, res) => {
 };
 
 
+exports.updateOrderStatus = async (req, res) => {
+    try {
+        const { orderId } = req.params;       // order id in params
+        const { status } = req.query;         // status in query
+
+        // Validate
+        if (!orderId || !status) {
+            return res.status(400).json({
+                success: false,
+                message: "orderId (params) and status (query) are required"
+            });
+        }
+
+        // Allowed status values
+        const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Allowed values: ${validStatuses.join(", ")}`
+            });
+        }
+
+        // Update
+        const updatedOrder = await Order.findByIdAndUpdate(
+            orderId,
+            { orderStatus: status },
+            { new: true }
+        );
+
+        if (!updatedOrder) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Order status updated successfully",
+            order: updatedOrder
+        });
+    } catch (error) {
+        console.error("Error updating order status:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+exports.filterOrderUsingStatus = async (req, res) => {
+  try {
+    const { status } = req.query; // status from query
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "status query parameter is required"
+      });
+    }
+
+    const validStatuses = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Allowed values: ${validStatuses.join(", ")}`
+      });
+    }
+
+    const orders = await Order.find({ orderStatus: status }).lean();
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `No orders found with status: ${status}`
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Orders fetched successfully",
+      orders
+    });
+  } catch (error) {
+    console.error("Error filtering orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
 
 exports.getEachBuyerOrders = async (req, res) => {
     try {
@@ -162,16 +255,16 @@ exports.getEachBuyerOrders = async (req, res) => {
 
 exports.addReviewRating = async (req, res) => {
     try {
-        const { 
-            buyerId, 
-            shopId, 
+        const {
+            buyerId,
+            shopId,
             listingId,
             orderId, // used only to update the order
-            review, 
-            shoppingExperience, 
-            customerService, 
-            productQuality, 
-            deliverySpeed 
+            review,
+            shoppingExperience,
+            customerService,
+            productQuality,
+            deliverySpeed
         } = req.body;
 
         // Validate required fields
@@ -231,13 +324,13 @@ exports.addReviewRating = async (req, res) => {
         // ----- UPDATE LISTING AVERAGE RATING -----
         const listingReviews = await Review.find({ listingId });
         const totalRating = listingReviews.reduce((sum, r) => sum + (r.averageRating || 0), 0);
-        const calculatedListingAverage = listingReviews.length > 0 
-            ? totalRating / listingReviews.length 
+        const calculatedListingAverage = listingReviews.length > 0
+            ? totalRating / listingReviews.length
             : 0;
 
         await Listing.updateOne(
             { _id: listingId },
-            { 
+            {
                 averageRating: calculatedListingAverage,
                 review: review,
                 updatedAt: Date.now()
@@ -423,172 +516,172 @@ exports.deleteSellerRatings = async (req, res) => {
 
 
 exports.buyerAddressCreate = async (req, res) => {
-  try {
-    const {
-      buyerId,
-      addressType,
-      firstName,
-      lastName,
-      streetAddress,
-      apartment,
-      city,
-      state,
-      zipCode,
-      phoneNumber,
-      isDefault
-    } = req.body;
+    try {
+        const {
+            buyerId,
+            addressType,
+            firstName,
+            lastName,
+            streetAddress,
+            apartment,
+            city,
+            state,
+            zipCode,
+            phoneNumber,
+            isDefault
+        } = req.body;
 
-    if (!buyerId || !addressType || !firstName || !lastName || !streetAddress || !city || !state || !zipCode || !phoneNumber) {
-      return res.status(400).json({
-        success: false,
-        message: 'All required fields must be provided'
-      });
+        if (!buyerId || !addressType || !firstName || !lastName || !streetAddress || !city || !state || !zipCode || !phoneNumber) {
+            return res.status(400).json({
+                success: false,
+                message: 'All required fields must be provided'
+            });
+        }
+
+        const newAddress = new BuyerAddress({
+            buyerId,
+            addressType,
+            firstName,
+            lastName,
+            streetAddress,
+            apartment,
+            city,
+            state,
+            zipCode,
+            phoneNumber,
+            isDefault: isDefault || false
+        });
+
+        await newAddress.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Buyer address created successfully',
+            data: newAddress
+        });
+
+    } catch (error) {
+        console.error('Error creating buyer address:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
     }
-
-    const newAddress = new BuyerAddress({
-      buyerId,
-      addressType,
-      firstName,
-      lastName,
-      streetAddress,
-      apartment,
-      city,
-      state,
-      zipCode,
-      phoneNumber,
-      isDefault: isDefault || false
-    });
-
-    await newAddress.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Buyer address created successfully',
-      data: newAddress
-    });
-
-  } catch (error) {
-    console.error('Error creating buyer address:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
-  }
 };
 
 
 exports.getBuyerAddress = async (req, res) => {
-  try {
-    const { buyerId } = req.params;
+    try {
+        const { buyerId } = req.params;
 
-    if (!buyerId) {
-      return res.status(400).json({
-        success: false,
-        message: 'buyerId is required'
-      });
+        if (!buyerId) {
+            return res.status(400).json({
+                success: false,
+                message: 'buyerId is required'
+            });
+        }
+
+        const addresses = await BuyerAddress.find({ buyerId }).sort({ isDefault: -1, createdAt: -1 });
+
+        if (!addresses || addresses.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No addresses found for this buyer'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Buyer addresses fetched successfully',
+            data: addresses
+        });
+
+    } catch (error) {
+        console.error('Error fetching buyer addresses:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
     }
-
-    const addresses = await BuyerAddress.find({ buyerId }).sort({ isDefault: -1, createdAt: -1 });
-
-    if (!addresses || addresses.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No addresses found for this buyer'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Buyer addresses fetched successfully',
-      data: addresses
-    });
-
-  } catch (error) {
-    console.error('Error fetching buyer addresses:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
-  }
 }
 
 
 exports.updateBuyerAddress = async (req, res) => {
-  try {
-    const { addressId } = req.params;
-    const updateData = req.body;
+    try {
+        const { addressId } = req.params;
+        const updateData = req.body;
 
-    if (!addressId) {
-      return res.status(400).json({
-        success: false,
-        message: 'addressId is required'
-      });
+        if (!addressId) {
+            return res.status(400).json({
+                success: false,
+                message: 'addressId is required'
+            });
+        }
+
+        const updatedAddress = await BuyerAddress.findByIdAndUpdate(
+            addressId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedAddress) {
+            return res.status(404).json({
+                success: false,
+                message: 'Address not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Buyer address updated successfully',
+            data: updatedAddress
+        });
+
+    } catch (error) {
+        console.error('Error updating buyer address:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
     }
-
-    const updatedAddress = await BuyerAddress.findByIdAndUpdate(
-      addressId,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedAddress) {
-      return res.status(404).json({
-        success: false,
-        message: 'Address not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Buyer address updated successfully',
-      data: updatedAddress
-    });
-
-  } catch (error) {
-    console.error('Error updating buyer address:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
-  }
 };
 
 
 exports.deleteBuyerAddress = async (req, res) => {
-  try {
-    const { addressId } = req.params;
+    try {
+        const { addressId } = req.params;
 
-    if (!addressId) {
-      return res.status(400).json({
-        success: false,
-        message: 'addressId is required'
-      });
+        if (!addressId) {
+            return res.status(400).json({
+                success: false,
+                message: 'addressId is required'
+            });
+        }
+
+        const deletedAddress = await BuyerAddress.findByIdAndDelete(addressId);
+
+        if (!deletedAddress) {
+            return res.status(404).json({
+                success: false,
+                message: 'Address not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Buyer address deleted successfully',
+            data: deletedAddress
+        });
+
+    } catch (error) {
+        console.error('Error deleting buyer address:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
     }
-
-    const deletedAddress = await BuyerAddress.findByIdAndDelete(addressId);
-
-    if (!deletedAddress) {
-      return res.status(404).json({
-        success: false,
-        message: 'Address not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Buyer address deleted successfully',
-      data: deletedAddress
-    });
-
-  } catch (error) {
-    console.error('Error deleting buyer address:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
-  }
 };
