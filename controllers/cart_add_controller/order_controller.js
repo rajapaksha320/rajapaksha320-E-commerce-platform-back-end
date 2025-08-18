@@ -147,46 +147,63 @@ exports.updateOrderStatus = async (req, res) => {
 };
 
 exports.filterOrderUsingStatus = async (req, res) => {
-  try {
-    const { status } = req.query; // status from query
+    try {
+        const { status, page = 1, pageSize = 10 } = req.query;
 
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: "status query parameter is required"
-      });
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: "status query parameter is required"
+            });
+        }
+
+        const validStatuses = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Allowed values: ${validStatuses.join(", ")}`
+            });
+        }
+
+        const pageNumber = parseInt(page);
+        const limit = parseInt(pageSize);
+        const skip = (pageNumber - 1) * limit;
+
+        // Get total count
+        const totalOrders = await Order.countDocuments({ orderStatus: status });
+
+        // Fetch paginated orders
+        const orders = await Order.find({ orderStatus: status })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        if (orders.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `No orders found with status: ${status}`
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Orders fetched successfully",
+            pagination: {
+                totalOrders,
+                currentPage: pageNumber,
+                pageSize: limit,
+                totalPages: Math.ceil(totalOrders / limit)
+            },
+            orders
+        });
+    } catch (error) {
+        console.error("Error filtering orders:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
     }
-
-    const validStatuses = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Allowed values: ${validStatuses.join(", ")}`
-      });
-    }
-
-    const orders = await Order.find({ orderStatus: status }).lean();
-
-    if (orders.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `No orders found with status: ${status}`
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Orders fetched successfully",
-      orders
-    });
-  } catch (error) {
-    console.error("Error filtering orders:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message
-    });
-  }
 };
 
 exports.getEachBuyerOrders = async (req, res) => {
