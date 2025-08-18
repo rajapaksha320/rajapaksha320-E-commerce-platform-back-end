@@ -60,6 +60,7 @@ exports.mainFilterController = async (req, res) => {
       CustomerRating,
       color,
       brandName,
+      title
     } = req.body;
 
     const { page = 1, pageSize = 10, sellerId } = req.query;
@@ -115,10 +116,15 @@ exports.mainFilterController = async (req, res) => {
       andConditions.push({ brand: brandName });
     }
 
+    if (title) {
+      andConditions.push({
+        title: { $regex: title, $options: 'i' }
+      });
+    }
+
     // Build final filter
     const filter = andConditions.length > 0 ? { $and: andConditions } : {};
 
-    // Pagination
     const pageNumber = parseInt(page, 10);
     const size = parseInt(pageSize, 10);
     const skip = (pageNumber - 1) * size;
