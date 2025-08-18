@@ -1,6 +1,7 @@
 const Cart = require('../../models/cart_model/cart_model');
 const CartItem = require('../../models/cart_model/cart_item_model');
 const Listing = require('../../models/listing_model/listing_model');
+const Store = require('../../models/store_model/store_model');
 
 exports.addToCartController = async (req, res) => {
     const session = await Cart.startSession();
@@ -67,7 +68,7 @@ exports.addToCartController = async (req, res) => {
 exports.getUserCartController = async (req, res) => {
     try {
         const { buyerId } = req.params;
-        const { page = 1, size = 10 } = req.query; // query params
+        const { page = 1, size = 10 } = req.query;
 
         if (!buyerId) {
             return res.status(400).json({
@@ -102,12 +103,44 @@ exports.getUserCartController = async (req, res) => {
 
         const listingIds = cartItems.map(item => item.listingId);
 
+        // Fetch listings
         const listings = await Listing.find({ _id: { $in: listingIds } }).lean();
 
-        const cartData = cartItems.map(item => ({
-            ...item,
-            listing: listings.find(l => l._id.toString() === item.listingId.toString()) || null
-        }));
+        // Extract only valid sellerIds
+        const sellerIds = [
+            ...new Set(
+                listings
+                    .filter(l => l.sellerDetails) // only if sellerId exists
+                    .map(l => l.sellerDetails.toString())
+            )
+        ];
+
+        // Fetch stores for these sellers
+        const stores = await Store.find({ sellerId: { $in: sellerIds } }).lean();
+
+        // console.log(stores);
+        
+
+        // Combine data
+        const cartData = cartItems.map(item => {
+            const listing = listings.find(
+                l => l._id.toString() === item.listingId.toString()
+            ) || null;
+
+            let store = null;
+
+            if (listing && listing.sellerDetails) {
+                store = stores.find(
+                    s => s.sellerId.toString() === listing.sellerDetails.toString()
+                ) || null;
+            }
+
+            return {
+                ...item,
+                listing,
+                store
+            };
+        });
 
         res.status(200).json({
             success: true,
