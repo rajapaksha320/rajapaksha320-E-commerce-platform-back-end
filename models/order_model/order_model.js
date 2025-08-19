@@ -47,9 +47,15 @@ const orderSchema = new Schema({
     default: 'pending'
   },
 
-  isReviewed:{
+  isReviewed: {
     type: Boolean,
     default: false
+  }
+  ,
+
+  orderRating: {
+    type: Number,
+    required: true
   }
 }, {
   timestamps: true

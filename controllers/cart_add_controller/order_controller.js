@@ -357,7 +357,7 @@ exports.addReviewRating = async (req, res) => {
         // ----- MARK THE ORDER AS REVIEWED -----
         await Order.updateOne(
             { _id: orderId },
-            { isReviewed: true, updatedAt: Date.now() }
+            { isReviewed: true, orderRating: averageRating, updatedAt: Date.now() }
         );
 
         res.status(201).json({
