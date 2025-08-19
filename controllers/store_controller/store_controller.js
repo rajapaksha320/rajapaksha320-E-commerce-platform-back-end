@@ -268,7 +268,9 @@ exports.getAllCreatedStore = async (req, res) => {
 
     const totalStores = await Store.countDocuments();
 
-    const allStores = await Store.find().skip(skip).limit(pageSize);
+    const allStores = await Store.find()
+      .skip(skip)
+      .limit(pageSize);
 
     if (!allStores || allStores.length === 0) {
       return res.status(404).json({ message: 'No stores found' });
@@ -276,8 +278,25 @@ exports.getAllCreatedStore = async (req, res) => {
 
     const allStoreWithSeller = await Promise.all(
       allStores.map(async (store) => {
+        // Count listings for this store
+        const totalListings = await ListingModel.countDocuments({
+          sellerDetails: store.sellerId,
+        });
+
+        // Update totalProducts field if needed
+        if (store.totalProducts !== totalListings) {
+          store.totalProducts = totalListings;
+          await store.save();
+        }
+
+        // Get seller details
         const seller = await User.findById(store.sellerId);
-        return { store, seller };
+
+        return {
+          store,
+          seller,
+          totalListings, // also send in response
+        };
       })
     );
 
@@ -288,11 +307,10 @@ exports.getAllCreatedStore = async (req, res) => {
         total: totalStores,
         page,
         pageSize,
-        totalPages: Math.ceil(totalStores / pageSize)
+        totalPages: Math.ceil(totalStores / pageSize),
       },
-      success: true
+      success: true,
     });
-
   } catch (error) {
     console.error('Error retrieving stores:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

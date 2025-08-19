@@ -9,40 +9,51 @@ const mongoose = require('mongoose');
 
 
 exports.placeOrderController = async (req, res) => {
-    try {
-        const { buyerId, sellerIds, listingIds, storeIds, shippingAddress, shippingOption, totalAmount } = req.body;
+  try {
+    const { buyerId, sellerIds, listingIds, storeIds, shippingAddress, shippingOption, totalAmount } = req.body;
 
-        if (!buyerId || !sellerIds || !listingIds || !shippingAddress || !shippingOption || !totalAmount) {
-            return res.status(400).json({
-                success: false,
-                message: 'All fields are required: buyerId, sellerIds, listingIds, shippingAddress, shippingOption, totalAmount',
-            });
-        }
-
-        const order = new Order({
-            buyerId,
-            sellerIds,
-            listingIds: listingIds,
-            storeIds: storeIds,
-            shippingAddress,
-            shippingOption,
-            totalAmount
-        });
-
-        await order.save();
-
-        res.status(201).json({
-            success: true,
-            message: 'Order placed successfully',
-            order
-        });
-
-
-    } catch (error) {
-        console.error('Error placing order:', error);
-        res.status(500).json({ message: 'Internal server error' });
+    if (!buyerId || !sellerIds || !listingIds || !storeIds || !shippingAddress || !shippingOption || !totalAmount) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required: buyerId, sellerIds, listingIds, storeIds, shippingAddress, shippingOption, totalAmount',
+      });
     }
-}
+
+    // Create new order
+    const order = new Order({
+      buyerId,
+      sellerIds,
+      listingIds,
+      storeIds,
+      shippingAddress,
+      shippingOption,
+      totalAmount
+    });
+
+    await order.save();
+
+    // 🔑 Update totalSales for each store
+    await Promise.all(
+      storeIds.map(async (storeId) => {
+        await Store.findOneAndUpdate(
+          { _id: storeId },
+          { $inc: { totalSales: 1 } }, // increment sales count
+          { new: true }
+        );
+      })
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Order placed successfully',
+      order
+    });
+
+  } catch (error) {
+    console.error('Error placing order:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 
 exports.getEachSellerOrders = async (req, res) => {
