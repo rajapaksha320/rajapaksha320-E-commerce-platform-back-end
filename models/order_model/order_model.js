@@ -55,7 +55,7 @@ const orderSchema = new Schema({
 
   orderRating: {
     type: Number,
-    required: true
+    required: false
   }
 }, {
   timestamps: true
