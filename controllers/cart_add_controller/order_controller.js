@@ -671,7 +671,6 @@ exports.updateBuyerAddress = async (req, res) => {
       );
     }
 
-    // ✅ Now update the requested address
     const updatedAddress = await BuyerAddress.findByIdAndUpdate(
       addressId,
       updateData,
