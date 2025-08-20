@@ -544,59 +544,67 @@ exports.deleteSellerRatings = async (req, res) => {
 
 
 exports.buyerAddressCreate = async (req, res) => {
-    try {
-        const {
-            buyerId,
-            addressType,
-            firstName,
-            lastName,
-            streetAddress,
-            apartment,
-            city,
-            state,
-            zipCode,
-            phoneNumber,
-            isDefault
-        } = req.body;
+  try {
+    const {
+      buyerId,
+      addressType,
+      firstName,
+      lastName,
+      streetAddress,
+      apartment,
+      city,
+      state,
+      zipCode,
+      phoneNumber,
+      isDefault
+    } = req.body;
 
-        if (!buyerId || !addressType || !firstName || !lastName || !streetAddress || !city || !state || !zipCode || !phoneNumber) {
-            return res.status(400).json({
-                success: false,
-                message: 'All required fields must be provided'
-            });
-        }
-
-        const newAddress = new BuyerAddress({
-            buyerId,
-            addressType,
-            firstName,
-            lastName,
-            streetAddress,
-            apartment,
-            city,
-            state,
-            zipCode,
-            phoneNumber,
-            isDefault: isDefault || false
-        });
-
-        await newAddress.save();
-
-        res.status(201).json({
-            success: true,
-            message: 'Buyer address created successfully',
-            data: newAddress
-        });
-
-    } catch (error) {
-        console.error('Error creating buyer address:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: error.message
-        });
+    if (!buyerId || !addressType || !firstName || !lastName || !streetAddress || !city || !state || !zipCode || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided'
+      });
     }
+
+    if (isDefault === true) {
+      await BuyerAddress.updateMany(
+        { buyerId },
+        { $set: { isDefault: false } }
+      );
+    }
+
+    const newAddress = new BuyerAddress({
+      buyerId,
+      addressType,
+      firstName,
+      lastName,
+      streetAddress,
+      apartment,
+      city,
+      state,
+      zipCode,
+      phoneNumber,
+      isDefault: isDefault || false
+    });
+
+    await newAddress.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Buyer address created successfully',
+      data: newAddress
+    });
+
+  } catch (error) {
+    console.error('Error creating buyer address:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
 };
+
 
 
 exports.getBuyerAddress = async (req, res) => {
@@ -637,44 +645,53 @@ exports.getBuyerAddress = async (req, res) => {
 
 
 exports.updateBuyerAddress = async (req, res) => {
-    try {
-        const { addressId } = req.params;
-        const updateData = req.body;
+  try {
+    const { addressId } = req.params;
+    const updateData = req.body;
 
-        if (!addressId) {
-            return res.status(400).json({
-                success: false,
-                message: 'addressId is required'
-            });
-        }
-
-        const updatedAddress = await BuyerAddress.findByIdAndUpdate(
-            addressId,
-            updateData,
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedAddress) {
-            return res.status(404).json({
-                success: false,
-                message: 'Address not found'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'Buyer address updated successfully',
-            data: updatedAddress
-        });
-
-    } catch (error) {
-        console.error('Error updating buyer address:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: error.message
-        });
+    if (!addressId) {
+      return res.status(400).json({
+        success: false,
+        message: 'addressId is required'
+      });
     }
+
+    const currentAddress = await BuyerAddress.findById(addressId);
+    if (!currentAddress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Address not found'
+      });
+    }
+
+    if (updateData.isDefault === true) {
+      await BuyerAddress.updateMany(
+        { buyerId: currentAddress.buyerId, _id: { $ne: addressId } },
+        { $set: { isDefault: false } }
+      );
+    }
+
+    // ✅ Now update the requested address
+    const updatedAddress = await BuyerAddress.findByIdAndUpdate(
+      addressId,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Buyer address updated successfully',
+      data: updatedAddress
+    });
+
+  } catch (error) {
+    console.error('Error updating buyer address:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
 };
 
 
