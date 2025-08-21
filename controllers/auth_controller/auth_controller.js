@@ -713,17 +713,25 @@ exports.getUserProfile = async (req, res) => {
 
 exports.getAllUsersController = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10 } = req.query;
+    const { page = 1, pageSize = 10, email, isDiactivate } = req.query;
 
     const pageNumber = parseInt(page);
     const size = parseInt(pageSize);
     const skip = (pageNumber - 1) * size;
 
-    // Total users count
-    const totalUsers = await User.countDocuments();
+    const filters = {};
 
-    // Fetch users with pagination
-    const users = await User.find()
+    if (email) {
+      filters.email = { $regex: email, $options: 'i' };
+    }
+
+    if (isDiactivate !== undefined) {
+      filters.isDiactivate = isDiactivate === 'true';
+    }
+
+    const totalUsers = await User.countDocuments(filters);
+
+    const users = await User.find(filters)
       .skip(skip)
       .limit(size)
       .lean();
@@ -768,10 +776,10 @@ exports.deactivateUsers = async (req, res) => {
       });
     }
 
-    user.isActive = isDiactivate;
+    user.isDiactivate = isDiactivate;
     await user.save();
 
-    const action = user.isActive ? "activated" : "deactivated";
+    const action = user.isDiactivate ? "activated" : "deactivated";
 
     return res.status(200).json({
       success: true,

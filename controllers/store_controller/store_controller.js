@@ -266,9 +266,22 @@ exports.getAllCreatedStore = async (req, res) => {
     const pageSize = parseInt(req.query.pageSize) || 10;
     const skip = (page - 1) * pageSize;
 
-    const totalStores = await Store.countDocuments();
+    const filters = {};
 
-    const allStores = await Store.find()
+    if (req.query.storeName) {
+      filters['basicInformation.storeName'] = {
+        $regex: req.query.storeName,
+        $options: 'i', 
+      };
+    }
+
+    if (req.query.isDiactivate !== undefined) {
+      filters.isDiactivate = req.query.isDiactivate === 'true';
+    }
+
+    const totalStores = await Store.countDocuments(filters);
+
+    const allStores = await Store.find(filters)
       .skip(skip)
       .limit(pageSize);
 
@@ -295,7 +308,7 @@ exports.getAllCreatedStore = async (req, res) => {
         return {
           store,
           seller,
-          totalListings, // also send in response
+          totalListings,
         };
       })
     );
