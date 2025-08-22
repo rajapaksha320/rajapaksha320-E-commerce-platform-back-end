@@ -13,13 +13,13 @@ router.get('/one-listing/:listingId', listingController.getListingById);
 
 router.get('/one-seller-listing/:userId', listingController.getOneSellerListing);
 
-router.get('/all', listingController.getAllListing);
+router.get('/all',authMiddleware, listingController.getAllListing);
 
 
 router.get('/listing-using-status', listingController.getListingByStatus);
 
 
-router.get('/listing-filter', listingController.getListingByFilter);
+router.get('/listing-filter',authMiddleware, listingController.getListingByFilter);
 
 
 router.get('/listing-delete/:listingId', listingController.deleteOneListing);

@@ -128,18 +128,29 @@ exports.getOneSellerListing = async (req, res) => {
 
 exports.getAllListing = async (req, res) => {
     try {
+        console.log(req.user);
+        
+        const { role } = req.user; // role from JWT
         const { page = 1, pageSize = 10 } = req.query;
         const pageNumber = parseInt(page);
         const size = parseInt(pageSize);
         const skip = (pageNumber - 1) * size;
 
-        // Total count for pagination - no status filter
-        const totalListings = await ListingModel.countDocuments({});
+        // Role-based filter
+        let filter = {};
+        if (role !== 'admin') {
+            // Only active listings for buyers and sellers
+            filter.isDiactivate = false;
+        }
 
-        // Paginated listing query - no status filter
-        const listings = await ListingModel.find({})
+        // Total count for pagination
+        const totalListings = await ListingModel.countDocuments(filter);
+
+        // Paginated listing query
+        const listings = await ListingModel.find(filter)
             .skip(skip)
-            .limit(size);
+            .limit(size)
+            .lean();
 
         if (!listings || listings.length === 0) {
             return res.status(404).json({ message: 'No listings found' });
@@ -150,10 +161,10 @@ exports.getAllListing = async (req, res) => {
             listings.map(async (listing) => {
                 let seller = null;
                 if (mongoose.Types.ObjectId.isValid(listing.sellerDetails)) {
-                    seller = await User.findById(listing.sellerDetails);
+                    seller = await User.findById(listing.sellerDetails).lean();
                 }
                 return {
-                    ...listing.toObject(),
+                    ...listing,
                     sellerInfo: seller,
                 };
             })
@@ -228,6 +239,7 @@ function escapeRegex(text) {
 
 exports.getListingByFilter = async (req, res) => {
   try {
+    const { role } = req.user; // role from JWT
     const { 
       status, 
       category, 
@@ -241,7 +253,11 @@ exports.getListingByFilter = async (req, res) => {
     const size = parseInt(pageSize);
     const skip = (pageNumber - 1) * size;
 
+    // Role-based filter
     let filter = {};
+    if (role !== 'admin') {
+      filter.isDiactivate = false; // only active listings for seller/buyer
+    }
 
     if (status) {
       if (!['active', 'inactive', 'draft', 'outOfStock', 'sold'].includes(status)) {
@@ -270,7 +286,8 @@ exports.getListingByFilter = async (req, res) => {
 
     const listings = await ListingModel.find(filter)
       .skip(skip)
-      .limit(size);
+      .limit(size)
+      .lean();
 
     res.status(200).json({
       success: true,
@@ -315,11 +332,15 @@ exports.deleteOneListing = async (req, res) => {
     }
 }
 
-exports.getListingCategoryWise = async(req,res)=>{
+exports.getListingCategoryWise = async (req, res) => {
     try {
         const { category } = req.params;
 
-        const listings = await ListingModel.find({ 'category.main': category });
+        // Only active listings
+        const listings = await ListingModel.find({ 
+            'category.main': category,
+            isDiactivate: false 
+        }).lean();
 
         if (!listings || listings.length === 0) {
             return res.status(404).json({ message: 'No listings found for this category' });

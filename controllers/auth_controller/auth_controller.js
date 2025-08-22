@@ -388,13 +388,22 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    // Prepare product wishlists with details
+    // Prepare product wishlists with details (only active listings)
     const productWishlistsDetails = [];
     if (user.productWishlists?.length > 0) {
       for (const wishlist of user.productWishlists) {
-        const totalItems = await ListingModel.countDocuments({ _id: { $in: wishlist.items } });
+        const activeListingIds = wishlist.items;
 
-        const items = await ListingModel.find({ _id: { $in: wishlist.items } })
+        // Count only active listings
+        const totalItems = await ListingModel.countDocuments({ 
+          _id: { $in: activeListingIds },
+          isDiactivate: false
+        });
+
+        const items = await ListingModel.find({ 
+            _id: { $in: activeListingIds },
+            isDiactivate: false 
+          })
           .select('name price images category status')
           .skip(skip)
           .limit(size)
@@ -413,13 +422,19 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
       }
     }
 
-    // Prepare shop wishlists with details
+    // Prepare shop wishlists with details (only active stores)
     const shopWishlistsDetails = [];
     if (user.shopWishlists?.length > 0) {
       for (const wishlist of user.shopWishlists) {
-        const totalItems = await Store.countDocuments({ _id: { $in: wishlist.items } });
+        const totalItems = await Store.countDocuments({ 
+          _id: { $in: wishlist.items },
+          isDiactivate: false
+        });
 
-        const items = await Store.find({ _id: { $in: wishlist.items } })
+        const items = await Store.find({ 
+            _id: { $in: wishlist.items },
+            isDiactivate: false 
+          })
           .skip(skip)
           .limit(size)
           .lean();
@@ -451,6 +466,7 @@ exports.getOneUserWatchListWithDetails = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 
 

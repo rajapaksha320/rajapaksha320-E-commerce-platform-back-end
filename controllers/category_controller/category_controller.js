@@ -67,6 +67,9 @@ exports.mainFilterController = async (req, res) => {
 
     const andConditions = [];
 
+    // ✅ Always ensure only active listings
+    andConditions.push({ isDiactivate: false });
+
     // Optional sellerId filter
     if (sellerId) {
       andConditions.push({ sellerDetails: sellerId });
@@ -116,6 +119,7 @@ exports.mainFilterController = async (req, res) => {
       andConditions.push({ brand: brandName });
     }
 
+    // Title filter
     if (title) {
       andConditions.push({
         title: { $regex: title, $options: 'i' }
@@ -123,7 +127,7 @@ exports.mainFilterController = async (req, res) => {
     }
 
     // Build final filter
-    const filter = andConditions.length > 0 ? { $and: andConditions } : {};
+    const filter = { $and: andConditions };
 
     const pageNumber = parseInt(page, 10);
     const size = parseInt(pageSize, 10);
@@ -155,5 +159,6 @@ exports.mainFilterController = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 

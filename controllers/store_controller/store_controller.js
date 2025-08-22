@@ -73,8 +73,11 @@ exports.filterShopsUsingCategory = async (req, res) => {
   try {
     const { categoryMain, categorySub, page = 1, pageSize = 10 } = req.query;
 
-    const shops = await Store.find().lean();
-    const allListings = await ListingModel.find().lean();
+    // Only active shops
+    const shops = await Store.find({ isDiactivate: false }).lean();
+
+    // Only active listings
+    const allListings = await ListingModel.find({ isDiactivate: false }).lean();
 
     const filterArray = [];
 
@@ -98,11 +101,14 @@ exports.filterShopsUsingCategory = async (req, res) => {
       if (shopListings.length > 0) {
         // Calculate counts per main category for this shop
         const categoryCounts = {};
-        const shopAllListings = allListings.filter(listing => listing.sellerDetails?.toString() === shopSellerId);
+        const shopAllListings = allListings.filter(
+          listing => listing.sellerDetails?.toString() === shopSellerId
+        );
 
         for (const listing of shopAllListings) {
           if (listing.category && listing.category.main) {
-            categoryCounts[listing.category.main] = (categoryCounts[listing.category.main] || 0) + 1;
+            categoryCounts[listing.category.main] =
+              (categoryCounts[listing.category.main] || 0) + 1;
           }
         }
 

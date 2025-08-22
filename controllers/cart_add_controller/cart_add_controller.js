@@ -114,7 +114,10 @@ exports.getUserCartController = async (req, res) => {
             )
         ];
 
-        const stores = await Store.find({ sellerId: { $in: sellerIds } }).lean();
+        const stores = await Store.find({
+            sellerId: { $in: sellerIds },
+            isDiactivate: false
+        }).lean();
 
         const cartData = cartItems
             .map(item => {
