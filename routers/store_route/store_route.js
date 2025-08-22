@@ -110,11 +110,11 @@ router.post('/create-store-profile', authMiddleware, storeController.createStore
 
 router.post('/update-store-profile/:storeId', authMiddleware, storeController.updateStoreProfile);
 
-router.get('/get-all-store',authMiddleware, storeController.getAllCreatedStore);
+router.get('/get-all-store', storeController.getAllCreatedStore);
 
 router.get('/filter-category', storeController.filterShopsUsingCategory);
 
-router.get('/get-each-shop-listing',authMiddleware, storeController.getEachShopsListing);
+router.get('/get-each-shop-listing', storeController.getEachShopsListing);
 
 router.get('/get-store-by-id/:storeId',storeController.getOneShopById)
 

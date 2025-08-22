@@ -73,10 +73,8 @@ exports.filterShopsUsingCategory = async (req, res) => {
   try {
     const { categoryMain, categorySub, page = 1, pageSize = 10 } = req.query;
 
-    // Only active shops
     const shops = await Store.find({ isDiactivate: false }).lean();
 
-    // Only active listings
     const allListings = await ListingModel.find({ isDiactivate: false }).lean();
 
     const filterArray = [];
@@ -84,7 +82,6 @@ exports.filterShopsUsingCategory = async (req, res) => {
     for (const shop of shops) {
       const shopSellerId = shop.sellerId?.toString();
 
-      // Filter listings that belong to this shop and match query category
       const shopListings = allListings.filter(listing => {
         const listingSellerId = listing.sellerDetails?.toString();
 
@@ -268,9 +265,7 @@ exports.updateStoreProfile = async (req, res) => {
 
 exports.getAllCreatedStore = async (req, res) => {
   try {
-    console.log(req.user);
-    
-    const { role } = req.user;
+
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
     const skip = (page - 1) * pageSize;
@@ -284,11 +279,9 @@ exports.getAllCreatedStore = async (req, res) => {
       };
     }
 
-    if (role === "admin") {
-      if (req.query.isDiactivate !== undefined) {
-        filters.isDiactivate = req.query.isDiactivate === "true";
-      }
-    } else if (role === "buyer") {
+
+    const filterListings = req.query.isDiactivate === 'false';
+    if (filterListings) {
       filters.isDiactivate = false;
     }
 
@@ -344,18 +337,19 @@ exports.getAllCreatedStore = async (req, res) => {
 
 exports.getEachShopsListing = async (req, res) => {
   try {
-    console.log(req.user);
-    
-    const { role } = req.user;
-    const { sellerId, page = 1, pageSize = 10 } = req.query;
+    const { sellerId, page = 1, pageSize = 10, isDiactivate } = req.query;
 
-    const pageNumber = parseInt(page);
-    const size = parseInt(pageSize);
+    if (!sellerId) {
+      return res.status(400).json({ message: "sellerId is required" });
+    }
+
+    const pageNumber = parseInt(page, 10);
+    const size = parseInt(pageSize, 10);
     const skip = (pageNumber - 1) * size;
 
     const query = { sellerDetails: sellerId };
 
-    if (role === "buyer") {
+    if (isDiactivate === 'false') {
       query.isDiactivate = false;
     }
 
@@ -363,13 +357,11 @@ exports.getEachShopsListing = async (req, res) => {
 
     const listings = await ListingModel.find(query)
       .skip(skip)
-      .limit(size);
-
-    if (!listings || listings.length === 0) {
-      return res.status(404).json({ message: "No listings found for this shop" });
-    }
+      .limit(size)
+      .lean();
 
     res.status(200).json({
+      success: true,
       message: "Shop listings retrieved successfully",
       data: listings,
       pagination: {
@@ -378,13 +370,14 @@ exports.getEachShopsListing = async (req, res) => {
         pageSize: size,
         totalPages: Math.ceil(totalListings / size),
       },
-      success: true,
     });
   } catch (error) {
     console.error("Error retrieving shop listings:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 
 exports.getOneShopById = async (req, res) => {
   try {
