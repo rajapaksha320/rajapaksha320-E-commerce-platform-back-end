@@ -145,7 +145,6 @@ exports.filterShopsUsingCategory = async (req, res) => {
   }
 };
 
-
 exports.createStoreImages = async (req, res) => {
   try {
     const filePath = req.file.path;
@@ -245,11 +244,23 @@ exports.updateStoreProfile = async (req, res) => {
       });
     }
 
+    // Update store
     const updatedStore = await Store.findByIdAndUpdate(storeId, updateData, { new: true });
+
+    console.log(updatedStore);
+    
 
     if (!updatedStore) {
       return res.status(404).json({ message: 'Store not found' });
     }
+
+    if (role === 'admin' && updateData.hasOwnProperty('isDiactivate')) {
+      await ListingModel.updateMany(
+        { sellerDetails: updatedStore.sellerId },
+        { $set: { isDiactivate: updateData.isDiactivate } }
+      );
+    }
+
     res.status(200).json({
       message: 'Store updated successfully',
       data: updatedStore,
