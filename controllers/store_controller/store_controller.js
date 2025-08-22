@@ -262,7 +262,9 @@ exports.updateStoreProfile = async (req, res) => {
 
 exports.getAllCreatedStore = async (req, res) => {
   try {
-    const { role } = req.body;
+    console.log(req.user);
+    
+    const { role } = req.user;
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
     const skip = (page - 1) * pageSize;
@@ -336,7 +338,9 @@ exports.getAllCreatedStore = async (req, res) => {
 
 exports.getEachShopsListing = async (req, res) => {
   try {
-    const { role } = req.body;
+    console.log(req.user);
+    
+    const { role } = req.user;
     const { sellerId, page = 1, pageSize = 10 } = req.query;
 
     const pageNumber = parseInt(page);

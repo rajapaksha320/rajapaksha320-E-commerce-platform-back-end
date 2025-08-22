@@ -81,21 +81,19 @@ exports.getUserCartController = async (req, res) => {
         const pageSize = parseInt(size);
         const skip = (pageNumber - 1) * pageSize;
 
-        // Total items in the cart
         const totalItems = await Cart.countDocuments({ buyerId });
 
         if (totalItems === 0) {
             return res.status(200).json({
                 success: true,
                 cartData: [],
-                totalItems,
+                totalItems: 0,
                 totalPages: 0,
                 currentPage: pageNumber,
                 message: 'Cart is empty'
             });
         }
 
-        // Paginated cart items
         const cartItems = await Cart.find({ buyerId })
             .skip(skip)
             .limit(pageSize)
@@ -103,50 +101,50 @@ exports.getUserCartController = async (req, res) => {
 
         const listingIds = cartItems.map(item => item.listingId);
 
-        // Fetch listings
-        const listings = await Listing.find({ _id: { $in: listingIds } }).lean();
+        const listings = await Listing.find({
+            _id: { $in: listingIds },
+            isDiactivate: false
+        }).lean();
 
-        // Extract only valid sellerIds
         const sellerIds = [
             ...new Set(
                 listings
-                    .filter(l => l.sellerDetails) // only if sellerId exists
+                    .filter(l => l.sellerDetails)
                     .map(l => l.sellerDetails.toString())
             )
         ];
 
-        // Fetch stores for these sellers
         const stores = await Store.find({ sellerId: { $in: sellerIds } }).lean();
 
-        // console.log(stores);
-        
-
-        // Combine data
-        const cartData = cartItems.map(item => {
-            const listing = listings.find(
-                l => l._id.toString() === item.listingId.toString()
-            ) || null;
-
-            let store = null;
-
-            if (listing && listing.sellerDetails) {
-                store = stores.find(
-                    s => s.sellerId.toString() === listing.sellerDetails.toString()
+        const cartData = cartItems
+            .map(item => {
+                const listing = listings.find(
+                    l => l._id.toString() === item.listingId.toString()
                 ) || null;
-            }
 
-            return {
-                ...item,
-                listing,
-                store
-            };
-        });
+                let store = null;
+
+                if (listing && listing.sellerDetails) {
+                    store = stores.find(
+                        s => s.sellerId.toString() === listing.sellerDetails.toString()
+                    ) || null;
+                }
+
+                if (!listing) return null;
+
+                return {
+                    ...item,
+                    listing,
+                    store
+                };
+            })
+            .filter(Boolean);
 
         res.status(200).json({
             success: true,
             cartData,
-            totalItems,
-            totalPages: Math.ceil(totalItems / pageSize),
+            totalItems: cartData.length,
+            totalPages: Math.ceil(cartData.length / pageSize),
             currentPage: pageNumber
         });
 
