@@ -163,7 +163,7 @@ const userSchema = new mongoose.Schema({
 
   isDiactivate:{
     type:Boolean,
-    default:true
+    default:false
   }
 
 }, {

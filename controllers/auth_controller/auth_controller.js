@@ -109,8 +109,17 @@ exports.login = async (req, res) => {
     return res.status(404).json({ message: 'User not found' });
   }
 
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+  if (user.isDiactivate) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account has been deactivated. Please contact support."
+    });
+  }
+
+  // Validate password
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return res.status(401).json({ message: "Invalid credentials" });
   }
 
   const refreshSecretKey =

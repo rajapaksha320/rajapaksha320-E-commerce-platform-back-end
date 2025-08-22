@@ -262,6 +262,7 @@ exports.updateStoreProfile = async (req, res) => {
 
 exports.getAllCreatedStore = async (req, res) => {
   try {
+    const { role } = req.body;
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
     const skip = (page - 1) * pageSize;
@@ -271,12 +272,16 @@ exports.getAllCreatedStore = async (req, res) => {
     if (req.query.storeName) {
       filters['basicInformation.storeName'] = {
         $regex: req.query.storeName,
-        $options: 'i', 
+        $options: 'i',
       };
     }
 
-    if (req.query.isDiactivate !== undefined) {
-      filters.isDiactivate = req.query.isDiactivate === 'true';
+    if (role === "admin") {
+      if (req.query.isDiactivate !== undefined) {
+        filters.isDiactivate = req.query.isDiactivate === "true";
+      }
+    } else if (role === "buyer") {
+      filters.isDiactivate = false;
     }
 
     const totalStores = await Store.countDocuments(filters);
@@ -286,23 +291,20 @@ exports.getAllCreatedStore = async (req, res) => {
       .limit(pageSize);
 
     if (!allStores || allStores.length === 0) {
-      return res.status(404).json({ message: 'No stores found' });
+      return res.status(404).json({ message: "No stores found" });
     }
 
     const allStoreWithSeller = await Promise.all(
       allStores.map(async (store) => {
-        // Count listings for this store
         const totalListings = await ListingModel.countDocuments({
           sellerDetails: store.sellerId,
         });
 
-        // Update totalProducts field if needed
         if (store.totalProducts !== totalListings) {
           store.totalProducts = totalListings;
           await store.save();
         }
 
-        // Get seller details
         const seller = await User.findById(store.sellerId);
 
         return {
@@ -314,7 +316,7 @@ exports.getAllCreatedStore = async (req, res) => {
     );
 
     res.status(200).json({
-      message: 'All stores retrieved successfully',
+      message: "All stores retrieved successfully",
       data: allStoreWithSeller,
       pagination: {
         total: totalStores,
@@ -325,49 +327,54 @@ exports.getAllCreatedStore = async (req, res) => {
       success: true,
     });
   } catch (error) {
-    console.error('Error retrieving stores:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error retrieving stores:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 
+
 exports.getEachShopsListing = async (req, res) => {
   try {
+    const { role } = req.body;
     const { sellerId, page = 1, pageSize = 10 } = req.query;
 
     const pageNumber = parseInt(page);
     const size = parseInt(pageSize);
     const skip = (pageNumber - 1) * size;
 
-    // Get total count for pagination
-    const totalListings = await ListingModel.countDocuments({ sellerDetails: sellerId });
+    const query = { sellerDetails: sellerId };
 
-    // Paginated query
-    const listings = await ListingModel.find({ sellerDetails: sellerId })
+    if (role === "buyer") {
+      query.isDiactivate = false;
+    }
+
+    const totalListings = await ListingModel.countDocuments(query);
+
+    const listings = await ListingModel.find(query)
       .skip(skip)
       .limit(size);
 
     if (!listings || listings.length === 0) {
-      return res.status(404).json({ message: 'No listings found for this shop' });
+      return res.status(404).json({ message: "No listings found for this shop" });
     }
 
     res.status(200).json({
-      message: 'Shop listings retrieved successfully',
+      message: "Shop listings retrieved successfully",
       data: listings,
       pagination: {
         total: totalListings,
         page: pageNumber,
         pageSize: size,
-        totalPages: Math.ceil(totalListings / size)
+        totalPages: Math.ceil(totalListings / size),
       },
-      success: true
+      success: true,
     });
-
   } catch (error) {
-    console.error('Error retrieving shop listings:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error retrieving shop listings:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};
 
 exports.getOneShopById = async (req, res) => {
   try {
