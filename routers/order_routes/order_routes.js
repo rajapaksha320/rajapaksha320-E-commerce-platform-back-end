@@ -8,6 +8,11 @@ router.post("/place-order", orderController.placeOrderController);
 
 router.get('/seller-orders/:sellerId', orderController.getEachSellerOrders);
 
+
+router.put("/update-order-status/:orderId",orderController.updateOrderStatus)
+
+router.get("/filter-order-status",orderController.filterOrderUsingStatus)
+
 router.get('/buyer-orders/:buyerId', orderController.getEachBuyerOrders);
 
 router.post("/review-ratings", orderController.addReviewRating);

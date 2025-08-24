@@ -73,15 +73,15 @@ exports.filterShopsUsingCategory = async (req, res) => {
   try {
     const { categoryMain, categorySub, page = 1, pageSize = 10 } = req.query;
 
-    const shops = await Store.find().lean();
-    const allListings = await ListingModel.find().lean();
+    const shops = await Store.find({ isDiactivate: false }).lean();
+
+    const allListings = await ListingModel.find({ isDiactivate: false }).lean();
 
     const filterArray = [];
 
     for (const shop of shops) {
       const shopSellerId = shop.sellerId?.toString();
 
-      // Filter listings that belong to this shop and match query category
       const shopListings = allListings.filter(listing => {
         const listingSellerId = listing.sellerDetails?.toString();
 
@@ -98,11 +98,14 @@ exports.filterShopsUsingCategory = async (req, res) => {
       if (shopListings.length > 0) {
         // Calculate counts per main category for this shop
         const categoryCounts = {};
-        const shopAllListings = allListings.filter(listing => listing.sellerDetails?.toString() === shopSellerId);
+        const shopAllListings = allListings.filter(
+          listing => listing.sellerDetails?.toString() === shopSellerId
+        );
 
         for (const listing of shopAllListings) {
           if (listing.category && listing.category.main) {
-            categoryCounts[listing.category.main] = (categoryCounts[listing.category.main] || 0) + 1;
+            categoryCounts[listing.category.main] =
+              (categoryCounts[listing.category.main] || 0) + 1;
           }
         }
 
@@ -141,7 +144,6 @@ exports.filterShopsUsingCategory = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
-
 
 exports.createStoreImages = async (req, res) => {
   try {
@@ -242,11 +244,23 @@ exports.updateStoreProfile = async (req, res) => {
       });
     }
 
+    // Update store
     const updatedStore = await Store.findByIdAndUpdate(storeId, updateData, { new: true });
+
+    console.log(updatedStore);
+    
 
     if (!updatedStore) {
       return res.status(404).json({ message: 'Store not found' });
     }
+
+    if (role === 'admin' && updateData.hasOwnProperty('isDiactivate')) {
+      await ListingModel.updateMany(
+        { sellerDetails: updatedStore.sellerId },
+        { $set: { isDiactivate: updateData.isDiactivate } }
+      );
+    }
+
     res.status(200).json({
       message: 'Store updated successfully',
       data: updatedStore,
@@ -262,81 +276,119 @@ exports.updateStoreProfile = async (req, res) => {
 
 exports.getAllCreatedStore = async (req, res) => {
   try {
+
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
     const skip = (page - 1) * pageSize;
 
-    const totalStores = await Store.countDocuments();
+    const filters = {};
 
-    const allStores = await Store.find().skip(skip).limit(pageSize);
+    if (req.query.storeName) {
+      filters['basicInformation.storeName'] = {
+        $regex: req.query.storeName,
+        $options: 'i',
+      };
+    }
+
+
+    const filterListings = req.query.isDiactivate === 'false';
+    if (filterListings) {
+      filters.isDiactivate = false;
+    }
+
+    const totalStores = await Store.countDocuments(filters);
+
+    const allStores = await Store.find(filters)
+      .skip(skip)
+      .limit(pageSize);
 
     if (!allStores || allStores.length === 0) {
-      return res.status(404).json({ message: 'No stores found' });
+      return res.status(404).json({ message: "No stores found" });
     }
 
     const allStoreWithSeller = await Promise.all(
       allStores.map(async (store) => {
+        const totalListings = await ListingModel.countDocuments({
+          sellerDetails: store.sellerId,
+        });
+
+        if (store.totalProducts !== totalListings) {
+          store.totalProducts = totalListings;
+          await store.save();
+        }
+
         const seller = await User.findById(store.sellerId);
-        return { store, seller };
+
+        return {
+          store,
+          seller,
+          totalListings,
+        };
       })
     );
 
     res.status(200).json({
-      message: 'All stores retrieved successfully',
+      message: "All stores retrieved successfully",
       data: allStoreWithSeller,
       pagination: {
         total: totalStores,
         page,
         pageSize,
-        totalPages: Math.ceil(totalStores / pageSize)
+        totalPages: Math.ceil(totalStores / pageSize),
       },
-      success: true
+      success: true,
     });
-
   } catch (error) {
-    console.error('Error retrieving stores:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error retrieving stores:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 
+
 exports.getEachShopsListing = async (req, res) => {
   try {
-    const { sellerId, page = 1, pageSize = 10 } = req.query;
+    const { sellerId, page = 1, pageSize = 10, isDiactivate } = req.query;
 
-    const pageNumber = parseInt(page);
-    const size = parseInt(pageSize);
-    const skip = (pageNumber - 1) * size;
-
-    // Get total count for pagination
-    const totalListings = await ListingModel.countDocuments({ sellerDetails: sellerId });
-
-    // Paginated query
-    const listings = await ListingModel.find({ sellerDetails: sellerId })
-      .skip(skip)
-      .limit(size);
-
-    if (!listings || listings.length === 0) {
-      return res.status(404).json({ message: 'No listings found for this shop' });
+    if (!sellerId) {
+      return res.status(400).json({ message: "sellerId is required" });
     }
 
+    const pageNumber = parseInt(page, 10);
+    const size = parseInt(pageSize, 10);
+    const skip = (pageNumber - 1) * size;
+
+    const query = { sellerDetails: sellerId };
+
+    if (isDiactivate === 'false') {
+      query.isDiactivate = false;
+    }
+
+    const totalListings = await ListingModel.countDocuments(query);
+
+    const listings = await ListingModel.find(query)
+      .skip(skip)
+      .limit(size)
+      .lean();
+
     res.status(200).json({
-      message: 'Shop listings retrieved successfully',
+      success: true,
+      message: "Shop listings retrieved successfully",
       data: listings,
       pagination: {
         total: totalListings,
         page: pageNumber,
         pageSize: size,
-        totalPages: Math.ceil(totalListings / size)
+        totalPages: Math.ceil(totalListings / size),
       },
-      success: true
     });
-
   } catch (error) {
-    console.error('Error retrieving shop listings:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error retrieving shop listings:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};
+
+
 
 exports.getOneShopById = async (req, res) => {
   try {

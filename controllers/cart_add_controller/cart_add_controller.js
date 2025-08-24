@@ -1,6 +1,7 @@
 const Cart = require('../../models/cart_model/cart_model');
 const CartItem = require('../../models/cart_model/cart_item_model');
 const Listing = require('../../models/listing_model/listing_model');
+const Store = require('../../models/store_model/store_model');
 
 exports.addToCartController = async (req, res) => {
     const session = await Cart.startSession();
@@ -67,7 +68,7 @@ exports.addToCartController = async (req, res) => {
 exports.getUserCartController = async (req, res) => {
     try {
         const { buyerId } = req.params;
-        const { page = 1, size = 10 } = req.query; // query params
+        const { page = 1, size = 10 } = req.query;
 
         if (!buyerId) {
             return res.status(400).json({
@@ -80,21 +81,19 @@ exports.getUserCartController = async (req, res) => {
         const pageSize = parseInt(size);
         const skip = (pageNumber - 1) * pageSize;
 
-        // Total items in the cart
         const totalItems = await Cart.countDocuments({ buyerId });
 
         if (totalItems === 0) {
             return res.status(200).json({
                 success: true,
                 cartData: [],
-                totalItems,
+                totalItems: 0,
                 totalPages: 0,
                 currentPage: pageNumber,
                 message: 'Cart is empty'
             });
         }
 
-        // Paginated cart items
         const cartItems = await Cart.find({ buyerId })
             .skip(skip)
             .limit(pageSize)
@@ -102,18 +101,53 @@ exports.getUserCartController = async (req, res) => {
 
         const listingIds = cartItems.map(item => item.listingId);
 
-        const listings = await Listing.find({ _id: { $in: listingIds } }).lean();
+        const listings = await Listing.find({
+            _id: { $in: listingIds },
+            isDiactivate: false
+        }).lean();
 
-        const cartData = cartItems.map(item => ({
-            ...item,
-            listing: listings.find(l => l._id.toString() === item.listingId.toString()) || null
-        }));
+        const sellerIds = [
+            ...new Set(
+                listings
+                    .filter(l => l.sellerDetails)
+                    .map(l => l.sellerDetails.toString())
+            )
+        ];
+
+        const stores = await Store.find({
+            sellerId: { $in: sellerIds },
+            isDiactivate: false
+        }).lean();
+
+        const cartData = cartItems
+            .map(item => {
+                const listing = listings.find(
+                    l => l._id.toString() === item.listingId.toString()
+                ) || null;
+
+                let store = null;
+
+                if (listing && listing.sellerDetails) {
+                    store = stores.find(
+                        s => s.sellerId.toString() === listing.sellerDetails.toString()
+                    ) || null;
+                }
+
+                if (!listing) return null;
+
+                return {
+                    ...item,
+                    listing,
+                    store
+                };
+            })
+            .filter(Boolean);
 
         res.status(200).json({
             success: true,
             cartData,
-            totalItems,
-            totalPages: Math.ceil(totalItems / pageSize),
+            totalItems: cartData.length,
+            totalPages: Math.ceil(cartData.length / pageSize),
             currentPage: pageNumber
         });
 

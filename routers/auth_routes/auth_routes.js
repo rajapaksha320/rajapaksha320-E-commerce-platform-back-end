@@ -174,5 +174,8 @@ router.get('/get-buyer-profile/:buyerId',authController.getUserProfile)
 
 router.get('/all-users',authController.getAllUsersController)
 
+
+router.post('/change-user-status/:userId',authMiddleware,authController.deactivateUsers)
+
 module.exports = router;
 

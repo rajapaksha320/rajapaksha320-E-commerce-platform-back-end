@@ -60,11 +60,15 @@ exports.mainFilterController = async (req, res) => {
       CustomerRating,
       color,
       brandName,
+      title
     } = req.body;
 
     const { page = 1, pageSize = 10, sellerId } = req.query;
 
     const andConditions = [];
+
+    // ✅ Always ensure only active listings
+    andConditions.push({ isDiactivate: false });
 
     // Optional sellerId filter
     if (sellerId) {
@@ -115,10 +119,16 @@ exports.mainFilterController = async (req, res) => {
       andConditions.push({ brand: brandName });
     }
 
-    // Build final filter
-    const filter = andConditions.length > 0 ? { $and: andConditions } : {};
+    // Title filter
+    if (title) {
+      andConditions.push({
+        title: { $regex: title, $options: 'i' }
+      });
+    }
 
-    // Pagination
+    // Build final filter
+    const filter = { $and: andConditions };
+
     const pageNumber = parseInt(page, 10);
     const size = parseInt(pageSize, 10);
     const skip = (pageNumber - 1) * size;
@@ -149,5 +159,6 @@ exports.mainFilterController = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 
