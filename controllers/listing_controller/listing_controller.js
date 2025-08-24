@@ -51,11 +51,11 @@ exports.updateListing = async (req, res) => {
         }
 
         res.status(200).json({ message: 'Listing updated successfully', listing: updatedListing });
-        
+
     } catch (error) {
         console.error('Error updating listing:', error);
         res.status(500).json({ message: 'Error updating listing', error: error.message });
-        
+
     }
 }
 
@@ -129,9 +129,9 @@ exports.getOneSellerListing = async (req, res) => {
 exports.getAllListing = async (req, res) => {
     try {
         console.log(req.user);
-        
+
         const { role } = req.user; // role from JWT
-        const { page = 1, pageSize = 10 } = req.query;
+        const { page = 1, pageSize = 10 , sellerId  } = req.query;
         const pageNumber = parseInt(page);
         const size = parseInt(pageSize);
         const skip = (pageNumber - 1) * size;
@@ -141,6 +141,13 @@ exports.getAllListing = async (req, res) => {
         if (role !== 'admin') {
             // Only active listings for buyers and sellers
             filter.isDiactivate = false;
+        }
+
+        if (sellerId) {
+            if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+                return res.status(400).json({ message: 'Invalid sellerId' });
+            }
+            filter.sellerDetails = sellerId;
         }
 
         // Total count for pagination
@@ -194,7 +201,7 @@ exports.getAllListing = async (req, res) => {
 // removed
 exports.getListingByStatus = async (req, res) => {
     try {
-        const { page = 1, pageSize = 10 , status } = req.query;
+        const { page = 1, pageSize = 10, status } = req.query;
 
         if (!['active', 'inactive', 'draft', 'outOfStock', 'sold'].includes(status)) {
             return res.status(400).json({ message: 'Invalid status' });
@@ -234,79 +241,87 @@ exports.getListingByStatus = async (req, res) => {
 
 
 function escapeRegex(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 exports.getListingByFilter = async (req, res) => {
-  try {
-    const { role } = req.user; // role from JWT
-    const { 
-      status, 
-      category, 
-      priceRange,
-      search,
-      page = 1, 
-      pageSize = 10 
-    } = req.query;
+    try {
+        const { role } = req.user; // role from JWT
+        const {
+            status,
+            category,
+            priceRange,
+            search,
+            sellerId,
+            page = 1,
+            pageSize = 10
+        } = req.query;
 
-    const pageNumber = parseInt(page);
-    const size = parseInt(pageSize);
-    const skip = (pageNumber - 1) * size;
+        const pageNumber = parseInt(page);
+        const size = parseInt(pageSize);
+        const skip = (pageNumber - 1) * size;
 
-    // Role-based filter
-    let filter = {};
-    if (role !== 'admin') {
-      filter.isDiactivate = false; // only active listings for seller/buyer
+        // Role-based filter
+        let filter = {};
+        if (role !== 'admin') {
+            filter.isDiactivate = false; // only active listings for seller/buyer
+        }
+
+        if (sellerId) {
+            if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+                return res.status(400).json({ message: 'Invalid sellerId' });
+            }
+            filter.sellerDetails = sellerId;
+        }
+
+        if (status) {
+            if (!['active', 'inactive', 'draft', 'outOfStock', 'sold'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status' });
+            }
+            filter.status = status;
+        }
+
+        if (category) {
+            filter['category.main'] = category;
+        }
+
+        if (search) {
+            const escapedSearch = escapeRegex(search);
+            filter.title = { $regex: escapedSearch, $options: 'i' };
+        }
+
+        if (priceRange) {
+            const [minPrice, maxPrice] = priceRange.split('-').map(Number);
+            if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+                filter['variations.price'] = { $gte: minPrice, $lte: maxPrice };
+            }
+        }
+
+        const totalListings = await ListingModel.countDocuments(filter);
+
+        const listings = await ListingModel.find(filter)
+            .skip(skip)
+            .limit(size)
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            listings,
+            pagination: {
+                total: totalListings,
+                page: pageNumber,
+                pageSize: size,
+                totalPages: Math.ceil(totalListings / size),
+            },
+        });
+
+    } catch (error) {
+        console.error('Error fetching listings:', error);
+        res.status(500).json({
+            message: 'Error fetching listings',
+            error: error.message
+        });
     }
-
-    if (status) {
-      if (!['active', 'inactive', 'draft', 'outOfStock', 'sold'].includes(status)) {
-          return res.status(400).json({ message: 'Invalid status' });
-      }
-      filter.status = status;
-    }
-
-    if (category) {
-      filter['category.main'] = category;
-    }
-
-    if (search) {
-      const escapedSearch = escapeRegex(search);
-      filter.title = { $regex: escapedSearch, $options: 'i' };
-    }
-
-    if (priceRange) {
-      const [minPrice, maxPrice] = priceRange.split('-').map(Number);
-      if (!isNaN(minPrice) && !isNaN(maxPrice)) {
-          filter['variations.price'] = { $gte: minPrice, $lte: maxPrice };
-      }
-    }
-
-    const totalListings = await ListingModel.countDocuments(filter);
-
-    const listings = await ListingModel.find(filter)
-      .skip(skip)
-      .limit(size)
-      .lean();
-
-    res.status(200).json({
-      success: true,
-      listings,
-      pagination: {
-          total: totalListings,
-          page: pageNumber,
-          pageSize: size,
-          totalPages: Math.ceil(totalListings / size),
-      },
-    });
-
-  } catch (error) {
-    console.error('Error fetching listings:', error);
-    res.status(500).json({ 
-      message: 'Error fetching listings', 
-      error: error.message 
-    });
-  }
 };
 
 
@@ -337,9 +352,9 @@ exports.getListingCategoryWise = async (req, res) => {
         const { category } = req.params;
 
         // Only active listings
-        const listings = await ListingModel.find({ 
+        const listings = await ListingModel.find({
             'category.main': category,
-            isDiactivate: false 
+            isDiactivate: false
         }).lean();
 
         if (!listings || listings.length === 0) {
