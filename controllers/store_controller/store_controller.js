@@ -248,7 +248,7 @@ exports.updateStoreProfile = async (req, res) => {
     const updatedStore = await Store.findByIdAndUpdate(storeId, updateData, { new: true });
 
     console.log(updatedStore);
-    
+
 
     if (!updatedStore) {
       return res.status(404).json({ message: 'Store not found' });
@@ -291,10 +291,15 @@ exports.getAllCreatedStore = async (req, res) => {
     }
 
 
-    const filterListings = req.query.isDiactivate === 'false';
-    if (filterListings) {
+    const filterListingsFalse = req.query.isDiactivate === 'false';
+    const filterListingsTrue = req.query.isDiactivate === 'true'
+    if (filterListingsFalse) {
       filters.isDiactivate = false;
     }
+    else if (filterListingsTrue) {
+      filters.isDiactivate = true;
+    }
+
 
     const totalStores = await Store.countDocuments(filters);
 
